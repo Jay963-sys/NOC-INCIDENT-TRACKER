@@ -1,0 +1,213 @@
+import { useState, useEffect } from "react";
+import api from "../services/api";
+
+export default function FaultList({ faults, onRowClick, onRefresh }) {
+  const [updatingId, setUpdatingId] = useState(null);
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  // Update current time every 1 minute for live pending hours
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 60000); // 1 minute
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleStatusChange = async (faultId, newStatus) => {
+    setUpdatingId(faultId);
+    try {
+      const fault = faults.find((f) => f.id === faultId);
+      await api.put(`/faults/${faultId}`, {
+        status: newStatus,
+        assigned_to_id: fault.assigned_to_id,
+      });
+      onRefresh();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update status");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  if (faults.length === 0) return <p>No faults found.</p>;
+
+  return (
+    <table style={tableStyle}>
+      <thead>
+        <tr>
+          <th style={thStyle}>Ticket #</th>
+          <th style={thStyle}>Company</th>
+          <th style={thStyle}>Circuit ID</th>
+          <th style={thStyle}>Type</th>
+          <th style={thStyle}>Description</th>
+          <th style={thStyle}>Location</th>
+          <th style={thStyle}>Owner</th>
+          <th style={thStyle}>Department</th>
+          <th style={thStyle}>Status</th>
+          <th style={thStyle}>Severity</th>
+          <th style={thStyle}>Pending</th>
+          <th style={thStyle}>Logged Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        {faults.map((fault) => {
+          const createdAt = new Date(fault.createdAt);
+          const resolvedAt = fault.resolvedAt
+            ? new Date(fault.resolvedAt)
+            : null;
+          const closedAt = fault.closedAt ? new Date(fault.closedAt) : null;
+
+          let pendingDisplay = "N/A";
+
+          if (fault.status === "Resolved") {
+            pendingDisplay = <span style={badgeStyle("green")}>Resolved</span>;
+          } else if (fault.status === "Closed") {
+            pendingDisplay = <span style={badgeStyle("gray")}>Closed</span>;
+          } else {
+            const diffMs = currentTime - createdAt.getTime();
+            const diffHours = diffMs / (1000 * 60 * 60);
+
+            pendingDisplay =
+              diffHours >= 24
+                ? `${(diffHours / 24).toFixed(1)} days`
+                : `${diffHours.toFixed(1)} hrs`;
+          }
+
+          return (
+            <tr key={fault.id} style={rowStyle}>
+              <td style={clickableCellStyle} onClick={() => onRowClick(fault)}>
+                {fault.ticket_number || fault.id}
+              </td>
+              <td style={clickableCellStyle} onClick={() => onRowClick(fault)}>
+                {fault.customer?.company || "N/A"}
+              </td>
+              <td style={clickableCellStyle} onClick={() => onRowClick(fault)}>
+                {fault.customer?.circuit_id || "N/A"}
+              </td>
+              <td style={clickableCellStyle} onClick={() => onRowClick(fault)}>
+                {fault.type || "N/A"}
+              </td>
+              <td style={clickableCellStyle} onClick={() => onRowClick(fault)}>
+                {fault.description}
+              </td>
+              <td style={clickableCellStyle} onClick={() => onRowClick(fault)}>
+                {fault.location || "N/A"}
+              </td>
+              <td style={clickableCellStyle} onClick={() => onRowClick(fault)}>
+                {fault.owner || "N/A"}
+              </td>
+              <td style={clickableCellStyle} onClick={() => onRowClick(fault)}>
+                {fault.department?.name || "N/A"}
+              </td>
+
+              <td style={tdStyle}>
+                <select
+                  value={fault.status}
+                  onChange={(e) => handleStatusChange(fault.id, e.target.value)}
+                  disabled={
+                    updatingId === fault.id || fault.status === "Closed"
+                  }
+                  style={{
+                    padding: "4px",
+                    backgroundColor:
+                      fault.status === "Open"
+                        ? "orange"
+                        : fault.status === "In Progress"
+                        ? "blue"
+                        : fault.status === "Resolved"
+                        ? "green"
+                        : fault.status === "Closed"
+                        ? "gray"
+                        : "lightgray",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <option value="Open">Open</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Resolved">Resolved</option>
+                  <option value="Closed">Closed</option>
+                </select>
+              </td>
+
+              <td style={tdStyle}>
+                <span
+                  style={{
+                    padding: "4px 8px",
+                    borderRadius: "4px",
+                    backgroundColor:
+                      fault.severity === "Low"
+                        ? "#28a745"
+                        : fault.severity === "Medium"
+                        ? "#ffc107"
+                        : fault.severity === "High"
+                        ? "#fd7e14"
+                        : fault.severity === "Critical"
+                        ? "#dc3545"
+                        : "gray",
+                    color: "white",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {fault.severity || "N/A"}
+                </span>
+              </td>
+
+              <td style={tdStyle}>{pendingDisplay}</td>
+
+              <td style={tdStyle}>
+                <div>{createdAt.toLocaleString()}</div>
+                {resolvedAt && (
+                  <div>Resolved At: {resolvedAt.toLocaleString()}</div>
+                )}
+                {closedAt && <div>Closed At: {closedAt.toLocaleString()}</div>}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
+const badgeStyle = (color) => ({
+  padding: "4px 8px",
+  borderRadius: "4px",
+  backgroundColor: color,
+  color: "white",
+  fontWeight: "bold",
+});
+
+const tableStyle = {
+  width: "100%",
+  borderCollapse: "collapse",
+  marginTop: "20px",
+  fontSize: "14px",
+};
+
+const thStyle = {
+  border: "1px solid #ddd",
+  padding: "8px",
+  backgroundColor: "#f0f0f0",
+  textAlign: "left",
+};
+
+const tdStyle = {
+  border: "1px solid #ddd",
+  padding: "8px",
+};
+
+const rowStyle = {
+  transition: "background-color 0.2s",
+};
+
+const clickableCellStyle = {
+  ...tdStyle,
+  cursor: "pointer",
+  textDecoration: "underline",
+  textUnderlineOffset: "3px",
+};
