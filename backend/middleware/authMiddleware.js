@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
+const { User, Department } = require("../models");
 
-const authMiddleware = (req, res, next) => {
+const authMiddleware = async (req, res, next) => {
   const authHeader = req.header("Authorization");
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -11,10 +12,26 @@ const authMiddleware = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
+
+    // Fetch full user details from DB
+    const user = await User.findByPk(decoded.id, {
+      include: [{ model: Department, as: "department" }],
+    });
+
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    // Attach to request
+    req.user = {
+      id: user.id,
+      department_id: user.department_id,
+      role: user.role,
+    };
+
     next();
   } catch (err) {
-    console.error(err);
+    console.error("Auth error:", err);
     res.status(401).json({ message: "Token is not valid" });
   }
 };

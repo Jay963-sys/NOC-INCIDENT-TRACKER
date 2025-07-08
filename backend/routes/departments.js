@@ -36,4 +36,55 @@ router.post("/", authMiddleware, async (req, res) => {
   }
 });
 
+// Update department name (Admin only)
+router.put("/:id", authMiddleware, async (req, res) => {
+  if (req.user.role !== "admin") {
+    return res
+      .status(403)
+      .json({ message: "Only admin can update departments" });
+  }
+
+  const { name } = req.body;
+  if (!name) {
+    return res.status(400).json({ message: "Department name is required" });
+  }
+
+  try {
+    const department = await Department.findByPk(req.params.id);
+    if (!department) {
+      return res.status(404).json({ message: "Department not found" });
+    }
+
+    department.name = name;
+    await department.save();
+
+    res.json({ message: "Department updated", department });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Delete department (Admin only)
+router.delete("/:id", authMiddleware, async (req, res) => {
+  if (req.user.role !== "admin") {
+    return res
+      .status(403)
+      .json({ message: "Only admin can delete departments" });
+  }
+
+  try {
+    const department = await Department.findByPk(req.params.id);
+    if (!department) {
+      return res.status(404).json({ message: "Department not found" });
+    }
+
+    await department.destroy();
+    res.json({ message: "Department deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 module.exports = router;

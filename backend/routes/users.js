@@ -50,7 +50,7 @@ router.post("/", authMiddleware, adminOnly, async (req, res) => {
 router.get("/", authMiddleware, adminOnly, async (req, res) => {
   try {
     const users = await User.findAll({
-      include: [{ model: Department, as: "Department" }],
+      include: [{ model: Department, as: "department" }], // ✅ Fixed alias
       attributes: { exclude: ["password"] },
       order: [["createdAt", "DESC"]],
     });
@@ -65,7 +65,7 @@ router.get("/", authMiddleware, adminOnly, async (req, res) => {
 router.get("/:id", authMiddleware, adminOnly, async (req, res) => {
   try {
     const user = await User.findByPk(req.params.id, {
-      include: [{ model: Department, as: "Department" }],
+      include: [{ model: Department, as: "department" }],
       attributes: { exclude: ["password"] },
     });
     if (!user) {
@@ -79,3 +79,38 @@ router.get("/:id", authMiddleware, adminOnly, async (req, res) => {
 });
 
 module.exports = router;
+
+// PUT /api/users/:id - Update user
+router.put("/:id", authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.params.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const { username, email, role, department_id } = req.body;
+
+    user.username = username || user.username;
+    user.email = email || user.email;
+    user.role = role || user.role;
+    user.department_id = department_id !== undefined ? department_id : null;
+
+    await user.save();
+    res.json({ message: "User updated successfully", user });
+  } catch (err) {
+    console.error("Error updating user:", err);
+    res.status(500).json({ message: "Server error updating user" });
+  }
+});
+
+// DELETE /api/users/:id - Delete user
+router.delete("/:id", authMiddleware, adminOnly, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.params.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    await user.destroy();
+    res.json({ message: "User deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting user:", err);
+    res.status(500).json({ message: "Server error deleting user" });
+  }
+});

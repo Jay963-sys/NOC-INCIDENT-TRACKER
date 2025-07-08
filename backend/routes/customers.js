@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const authMiddleware = require("../middleware/authMiddleware");
 const { Customer } = require("../models");
+const { Fault } = require("../models");
 
 // Get all customers (Protected)
 router.get("/", authMiddleware, async (req, res) => {
@@ -114,6 +115,23 @@ router.delete("/:id", authMiddleware, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error deleting customer" });
+  }
+});
+
+module.exports = router;
+
+// GET /api/customers/:id/history - Fetch all faults for a customer
+router.get("/:id/history", authMiddleware, async (req, res) => {
+  try {
+    const faults = await Fault.findAll({
+      where: { customer_id: req.params.id },
+      order: [["createdAt", "DESC"]],
+    });
+
+    res.json(faults);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error fetching fault history" });
   }
 });
 
