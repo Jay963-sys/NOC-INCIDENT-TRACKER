@@ -79,6 +79,13 @@ export default function SidebarLayout({ children }) {
             collapsed={collapsed}
             active={isActive("/users")}
           />
+          <SidebarLink
+            to="/departments"
+            icon="🏬"
+            label="Departments"
+            collapsed={collapsed}
+            active={isActive("/departments")}
+          />
         </nav>
       </div>
 

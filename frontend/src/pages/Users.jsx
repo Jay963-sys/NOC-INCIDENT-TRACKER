@@ -12,6 +12,7 @@ export default function Users() {
     role: "user",
     department_id: "",
   });
+  const [editingUser, setEditingUser] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -41,7 +42,12 @@ export default function Users() {
   };
 
   const handleInputChange = (e) => {
-    setNewUser({ ...newUser, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (editingUser) {
+      setEditingUser({ ...editingUser, [name]: value });
+    } else {
+      setNewUser({ ...newUser, [name]: value });
+    }
   };
 
   const handleCreateUser = async (e) => {
@@ -87,6 +93,30 @@ export default function Users() {
     }
   };
 
+  const handleEditUser = (user) => {
+    setEditingUser({
+      ...user,
+      department_id: user.department?.id || "",
+    });
+  };
+
+  const handleUpdateUser = async (e) => {
+    e.preventDefault();
+    try {
+      await api.put(`/users/${editingUser.id}`, {
+        username: editingUser.username,
+        email: editingUser.email,
+        role: editingUser.role,
+        department_id: editingUser.department_id || null,
+      });
+      setEditingUser(null);
+      fetchUsers();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update user.");
+    }
+  };
+
   return (
     <div className="page-container">
       <div className="page-header">
@@ -101,17 +131,17 @@ export default function Users() {
           marginBottom: "20px",
         }}
       >
-        <h3>Create New User</h3>
+        <h3>{editingUser ? "Edit User" : "Create New User"}</h3>
         {error && <p className="error-text">{error}</p>}
         <form
-          onSubmit={handleCreateUser}
+          onSubmit={editingUser ? handleUpdateUser : handleCreateUser}
           style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}
         >
           <input
             type="text"
             name="username"
             placeholder="Username *"
-            value={newUser.username}
+            value={editingUser ? editingUser.username : newUser.username}
             onChange={handleInputChange}
             style={{ flex: "1", padding: "8px" }}
           />
@@ -119,21 +149,23 @@ export default function Users() {
             type="email"
             name="email"
             placeholder="Email *"
-            value={newUser.email}
+            value={editingUser ? editingUser.email : newUser.email}
             onChange={handleInputChange}
             style={{ flex: "1", padding: "8px" }}
           />
-          <input
-            type="password"
-            name="password"
-            placeholder="Password *"
-            value={newUser.password}
-            onChange={handleInputChange}
-            style={{ flex: "1", padding: "8px" }}
-          />
+          {!editingUser && (
+            <input
+              type="password"
+              name="password"
+              placeholder="Password *"
+              value={newUser.password}
+              onChange={handleInputChange}
+              style={{ flex: "1", padding: "8px" }}
+            />
+          )}
           <select
             name="role"
-            value={newUser.role}
+            value={editingUser ? editingUser.role : newUser.role}
             onChange={handleInputChange}
             style={{ flex: "1", padding: "8px" }}
           >
@@ -142,7 +174,11 @@ export default function Users() {
           </select>
           <select
             name="department_id"
-            value={newUser.department_id}
+            value={
+              editingUser
+                ? editingUser.department_id || ""
+                : newUser.department_id
+            }
             onChange={handleInputChange}
             style={{ flex: "1", padding: "8px" }}
           >
@@ -154,8 +190,22 @@ export default function Users() {
             ))}
           </select>
           <button className="primary-btn" type="submit">
-            Add User
+            {editingUser ? "Update User" : "Add User"}
           </button>
+          {editingUser && (
+            <button
+              type="button"
+              onClick={() => setEditingUser(null)}
+              style={{
+                background: "gray",
+                color: "white",
+                padding: "8px 12px",
+                borderRadius: "4px",
+              }}
+            >
+              Cancel
+            </button>
+          )}
         </form>
       </div>
 
@@ -182,8 +232,15 @@ export default function Users() {
                   <td>{u.username}</td>
                   <td>{u.email}</td>
                   <td>{u.role}</td>
-                  <td>{u.Department ? u.Department.name : "N/A"}</td>
+                  <td>{u.department ? u.department.name : "N/A"}</td>
                   <td>
+                    <button
+                      className="edit-btn"
+                      onClick={() => handleEditUser(u)}
+                      style={{ marginRight: "6px" }}
+                    >
+                      Edit
+                    </button>
                     <button
                       className="delete-btn"
                       onClick={() => handleDeleteUser(u.id)}

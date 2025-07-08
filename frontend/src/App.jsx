@@ -6,6 +6,7 @@ import Dashboard from "./pages/Dashboard";
 import Faults from "./pages/Faults";
 import Customers from "./pages/Customers";
 import Users from "./pages/Users";
+import Departments from "./pages/Departments";
 
 export default function App() {
   return (
@@ -45,6 +46,16 @@ export default function App() {
             <PrivateRoute>
               <SidebarLayout>
                 <Users />
+              </SidebarLayout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/departments"
+          element={
+            <PrivateRoute>
+              <SidebarLayout>
+                <Departments />
               </SidebarLayout>
             </PrivateRoute>
           }

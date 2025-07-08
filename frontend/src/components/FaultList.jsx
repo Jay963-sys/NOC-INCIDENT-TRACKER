@@ -49,8 +49,15 @@ export default function FaultList({ faults, onRowClick, onRefresh }) {
           <th style={thStyle}>Severity</th>
           <th style={thStyle}>Pending</th>
           <th style={thStyle}>Logged Time</th>
+          {faults.some((f) => f.status === "Resolved") && (
+            <th style={thStyle}>Resolved At</th>
+          )}
+          {faults.some((f) => f.status === "Closed") && (
+            <th style={thStyle}>Closed At</th>
+          )}
         </tr>
       </thead>
+
       <tbody>
         {faults.map((fault) => {
           const createdAt = new Date(fault.createdAt);
@@ -68,7 +75,6 @@ export default function FaultList({ faults, onRowClick, onRefresh }) {
           } else {
             const diffMs = currentTime - createdAt.getTime();
             const diffHours = diffMs / (1000 * 60 * 60);
-
             pendingDisplay =
               diffHours >= 24
                 ? `${(diffHours / 24).toFixed(1)} days`
@@ -159,13 +165,19 @@ export default function FaultList({ faults, onRowClick, onRefresh }) {
 
               <td style={tdStyle}>{pendingDisplay}</td>
 
-              <td style={tdStyle}>
-                <div>{createdAt.toLocaleString()}</div>
-                {resolvedAt && (
-                  <div>Resolved At: {resolvedAt.toLocaleString()}</div>
-                )}
-                {closedAt && <div>Closed At: {closedAt.toLocaleString()}</div>}
-              </td>
+              <td style={tdStyle}>{createdAt.toLocaleString()}</td>
+
+              {faults.some((f) => f.status === "Resolved") && (
+                <td style={tdStyle}>
+                  {resolvedAt ? resolvedAt.toLocaleString() : "—"}
+                </td>
+              )}
+
+              {faults.some((f) => f.status === "Closed") && (
+                <td style={tdStyle}>
+                  {closedAt ? closedAt.toLocaleString() : "—"}
+                </td>
+              )}
             </tr>
           );
         })}

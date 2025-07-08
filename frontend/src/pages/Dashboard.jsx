@@ -117,6 +117,52 @@ export default function Dashboard() {
         </select>
       </div>
 
+      {/* Export to Excel Button */}
+      <button
+        onClick={async () => {
+          try {
+            const response = await api.get("/faults/export", {
+              params: {
+                status: activeTab.toLowerCase() === "all" ? "all" : activeTab,
+                department_id:
+                  departmentFilter === "All"
+                    ? "all"
+                    : getDepartmentId(departmentFilter),
+                severity: severityFilter === "All" ? "all" : severityFilter,
+                search: searchTerm.trim() || undefined,
+              },
+              responseType: "blob", // This ensures the Excel binary file is handled correctly
+            });
+
+            const blob = new Blob([response.data], {
+              type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            });
+
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = downloadUrl;
+            link.download = "faults_export.xlsx";
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+          } catch (error) {
+            console.error("Export failed:", error);
+            alert("Failed to export faults.");
+          }
+        }}
+        style={{
+          marginBottom: "20px",
+          padding: "8px 14px",
+          backgroundColor: "#28a745",
+          color: "white",
+          border: "none",
+          borderRadius: "5px",
+          cursor: "pointer",
+        }}
+      >
+        📥 Export to Excel
+      </button>
+
       {/* Fault Table */}
       {loading ? (
         <p>Loading faults...</p>
