@@ -118,24 +118,19 @@ export default function Users() {
   };
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <h2>User Management</h2>
+    <div style={containerStyle}>
+      <div style={headerStyle}>
+        <h2 style={titleStyle}>User Management</h2>
       </div>
 
-      <div
-        style={{
-          background: "white",
-          padding: "20px",
-          borderRadius: "8px",
-          marginBottom: "20px",
-        }}
-      >
-        <h3>{editingUser ? "Edit User" : "Create New User"}</h3>
-        {error && <p className="error-text">{error}</p>}
+      <div style={formCard}>
+        <h3 style={subtitleStyle}>
+          {editingUser ? "Edit User" : "Create New User"}
+        </h3>
+        {error && <p style={errorStyle}>{error}</p>}
         <form
           onSubmit={editingUser ? handleUpdateUser : handleCreateUser}
-          style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}
+          style={formStyle}
         >
           <input
             type="text"
@@ -143,7 +138,7 @@ export default function Users() {
             placeholder="Username *"
             value={editingUser ? editingUser.username : newUser.username}
             onChange={handleInputChange}
-            style={{ flex: "1", padding: "8px" }}
+            style={inputStyle}
           />
           <input
             type="email"
@@ -151,7 +146,7 @@ export default function Users() {
             placeholder="Email *"
             value={editingUser ? editingUser.email : newUser.email}
             onChange={handleInputChange}
-            style={{ flex: "1", padding: "8px" }}
+            style={inputStyle}
           />
           {!editingUser && (
             <input
@@ -160,14 +155,14 @@ export default function Users() {
               placeholder="Password *"
               value={newUser.password}
               onChange={handleInputChange}
-              style={{ flex: "1", padding: "8px" }}
+              style={inputStyle}
             />
           )}
           <select
             name="role"
             value={editingUser ? editingUser.role : newUser.role}
             onChange={handleInputChange}
-            style={{ flex: "1", padding: "8px" }}
+            style={inputStyle}
           >
             <option value="user">User</option>
             <option value="admin">Admin</option>
@@ -180,7 +175,7 @@ export default function Users() {
                 : newUser.department_id
             }
             onChange={handleInputChange}
-            style={{ flex: "1", padding: "8px" }}
+            style={inputStyle}
           >
             <option value="">No Department</option>
             {departments.map((d) => (
@@ -189,19 +184,14 @@ export default function Users() {
               </option>
             ))}
           </select>
-          <button className="primary-btn" type="submit">
+          <button style={primaryBtn} type="submit">
             {editingUser ? "Update User" : "Add User"}
           </button>
           {editingUser && (
             <button
               type="button"
               onClick={() => setEditingUser(null)}
-              style={{
-                background: "gray",
-                color: "white",
-                padding: "8px 12px",
-                borderRadius: "4px",
-              }}
+              style={secondaryBtn}
             >
               Cancel
             </button>
@@ -209,40 +199,52 @@ export default function Users() {
         </form>
       </div>
 
-      <div
-        style={{ background: "white", padding: "20px", borderRadius: "8px" }}
-      >
-        <h3>All Users</h3>
+      <div style={formCard}>
+        <h3 style={subtitleStyle}>All Users</h3>
         {loading ? (
           <p>Loading users...</p>
         ) : (
-          <table className="data-table">
+          <table style={tableStyle}>
             <thead>
               <tr>
-                <th>Username</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Department</th>
-                <th>Actions</th>
+                <th style={thStyle}>Username</th>
+                <th style={thStyle}>Email</th>
+                <th style={thStyle}>Role</th>
+                <th style={thStyle}>Department</th>
+                <th style={thStyle}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => (
-                <tr key={u.id}>
-                  <td>{u.username}</td>
-                  <td>{u.email}</td>
-                  <td>{u.role}</td>
-                  <td>{u.department ? u.department.name : "N/A"}</td>
-                  <td>
+              {users.map((u, idx) => (
+                <tr
+                  key={u.id}
+                  style={{
+                    backgroundColor: idx % 2 === 0 ? "#fff" : "#f9f9f9",
+                    transition: "background-color 0.2s",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.backgroundColor = "#eef5ff")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.backgroundColor =
+                      idx % 2 === 0 ? "#fff" : "#f9f9f9")
+                  }
+                >
+                  <td style={tdStyle}>{u.username}</td>
+                  <td style={tdStyle}>{u.email}</td>
+                  <td style={tdStyle}>{u.role}</td>
+                  <td style={tdStyle}>
+                    {u.department ? u.department.name : "N/A"}
+                  </td>
+                  <td style={tdStyle}>
                     <button
-                      className="edit-btn"
+                      style={editBtnStyle}
                       onClick={() => handleEditUser(u)}
-                      style={{ marginRight: "6px" }}
                     >
                       Edit
                     </button>
                     <button
-                      className="delete-btn"
+                      style={deleteBtnStyle}
                       onClick={() => handleDeleteUser(u.id)}
                     >
                       Delete
@@ -257,3 +259,114 @@ export default function Users() {
     </div>
   );
 }
+
+// -------------------- Styles --------------------
+
+const containerStyle = {
+  padding: "20px",
+  fontFamily: "Poppins, sans-serif",
+};
+
+const headerStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: "20px",
+};
+
+const titleStyle = {
+  fontSize: "24px",
+  fontWeight: "600",
+};
+
+const subtitleStyle = {
+  marginBottom: "10px",
+};
+
+const errorStyle = {
+  color: "red",
+};
+
+const formCard = {
+  background: "white",
+  padding: "20px",
+  borderRadius: "10px",
+  marginBottom: "20px",
+  boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
+};
+
+const formStyle = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "10px",
+};
+
+const inputStyle = {
+  flex: "1",
+  padding: "10px",
+  border: "1px solid #ccc",
+  borderRadius: "6px",
+};
+
+const primaryBtn = {
+  backgroundColor: "#007bff",
+  color: "#fff",
+  padding: "10px 16px",
+  border: "none",
+  borderRadius: "6px",
+  cursor: "pointer",
+};
+
+const secondaryBtn = {
+  backgroundColor: "#6c757d",
+  color: "#fff",
+  padding: "10px 16px",
+  border: "none",
+  borderRadius: "6px",
+  cursor: "pointer",
+};
+
+const tableStyle = {
+  width: "100%",
+  borderCollapse: "collapse",
+  borderRadius: "10px",
+  overflow: "hidden",
+  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
+};
+
+const thStyle = {
+  padding: "12px",
+  backgroundColor: "#f0f0f0",
+  fontWeight: "600",
+  fontSize: "15px",
+  color: "#333",
+  textAlign: "left",
+};
+
+const tdStyle = {
+  padding: "12px 16px",
+  borderBottom: "1px solid #eee",
+  fontSize: "13px",
+  color: "#000",
+};
+
+const editBtnStyle = {
+  marginRight: "6px",
+  padding: "6px 12px",
+  backgroundColor: "#17a2b8",
+  color: "#fff",
+  border: "none",
+  borderRadius: "4px",
+  cursor: "pointer",
+  fontSize: "12px",
+};
+
+const deleteBtnStyle = {
+  padding: "6px 12px",
+  backgroundColor: "#dc3545",
+  color: "#fff",
+  border: "none",
+  borderRadius: "4px",
+  cursor: "pointer",
+  fontSize: "12px",
+};

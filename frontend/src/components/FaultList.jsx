@@ -5,12 +5,10 @@ export default function FaultList({ faults, onRowClick, onRefresh }) {
   const [updatingId, setUpdatingId] = useState(null);
   const [currentTime, setCurrentTime] = useState(Date.now());
 
-  // Update current time every 1 minute for live pending hours
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentTime(Date.now());
-    }, 60000); // 1 minute
-
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -59,7 +57,7 @@ export default function FaultList({ faults, onRowClick, onRefresh }) {
       </thead>
 
       <tbody>
-        {faults.map((fault) => {
+        {faults.map((fault, idx) => {
           const createdAt = new Date(fault.createdAt);
           const resolvedAt = fault.resolvedAt
             ? new Date(fault.resolvedAt)
@@ -67,7 +65,6 @@ export default function FaultList({ faults, onRowClick, onRefresh }) {
           const closedAt = fault.closedAt ? new Date(fault.closedAt) : null;
 
           let pendingDisplay = "N/A";
-
           if (fault.status === "Resolved") {
             pendingDisplay = <span style={badgeStyle("green")}>Resolved</span>;
           } else if (fault.status === "Closed") {
@@ -82,7 +79,20 @@ export default function FaultList({ faults, onRowClick, onRefresh }) {
           }
 
           return (
-            <tr key={fault.id} style={rowStyle}>
+            <tr
+              key={fault.id}
+              style={{
+                ...rowStyle,
+                backgroundColor: idx % 2 === 0 ? "#fff" : "#f9f9f9",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.backgroundColor = "#eef5ff")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.backgroundColor =
+                  idx % 2 === 0 ? "#fff" : "#f9f9f9")
+              }
+            >
               <td style={clickableCellStyle} onClick={() => onRowClick(fault)}>
                 {fault.ticket_number || fault.id}
               </td>
@@ -116,21 +126,21 @@ export default function FaultList({ faults, onRowClick, onRefresh }) {
                     updatingId === fault.id || fault.status === "Closed"
                   }
                   style={{
-                    padding: "4px",
+                    padding: "4px 8px",
                     backgroundColor:
                       fault.status === "Open"
                         ? "orange"
                         : fault.status === "In Progress"
-                        ? "blue"
+                        ? "#007bff"
                         : fault.status === "Resolved"
                         ? "green"
                         : fault.status === "Closed"
                         ? "gray"
-                        : "lightgray",
+                        : "#ccc",
                     color: "white",
                     border: "none",
                     borderRadius: "4px",
-                    cursor: "pointer",
+                    fontSize: "12px",
                   }}
                 >
                   <option value="Open">Open</option>
@@ -142,39 +152,33 @@ export default function FaultList({ faults, onRowClick, onRefresh }) {
 
               <td style={tdStyle}>
                 <span
-                  style={{
-                    padding: "4px 8px",
-                    borderRadius: "4px",
-                    backgroundColor:
-                      fault.severity === "Low"
-                        ? "#28a745"
-                        : fault.severity === "Medium"
-                        ? "#ffc107"
-                        : fault.severity === "High"
-                        ? "#fd7e14"
-                        : fault.severity === "Critical"
-                        ? "#dc3545"
-                        : "gray",
-                    color: "white",
-                    fontWeight: "bold",
-                  }}
+                  style={badgeStyle(
+                    fault.severity === "Low"
+                      ? "#28a745"
+                      : fault.severity === "Medium"
+                      ? "#ffc107"
+                      : fault.severity === "High"
+                      ? "#fd7e14"
+                      : fault.severity === "Critical"
+                      ? "#dc3545"
+                      : "#6c757d"
+                  )}
                 >
                   {fault.severity || "N/A"}
                 </span>
               </td>
 
               <td style={tdStyle}>{pendingDisplay}</td>
-
-              <td style={tdStyle}>{createdAt.toLocaleString()}</td>
+              <td style={timestampCellStyle}>{createdAt.toLocaleString()}</td>
 
               {faults.some((f) => f.status === "Resolved") && (
-                <td style={tdStyle}>
+                <td style={timestampCellStyle}>
                   {resolvedAt ? resolvedAt.toLocaleString() : "—"}
                 </td>
               )}
 
               {faults.some((f) => f.status === "Closed") && (
-                <td style={tdStyle}>
+                <td style={timestampCellStyle}>
                   {closedAt ? closedAt.toLocaleString() : "—"}
                 </td>
               )}
@@ -186,40 +190,58 @@ export default function FaultList({ faults, onRowClick, onRefresh }) {
   );
 }
 
-const badgeStyle = (color) => ({
-  padding: "4px 8px",
-  borderRadius: "4px",
-  backgroundColor: color,
-  color: "white",
-  fontWeight: "bold",
-});
+// === Styles ===
 
 const tableStyle = {
   width: "100%",
   borderCollapse: "collapse",
   marginTop: "20px",
   fontSize: "14px",
+  borderRadius: "10px",
+  overflow: "hidden",
+  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
 };
 
 const thStyle = {
   border: "1px solid #ddd",
-  padding: "8px",
+  padding: "10px",
   backgroundColor: "#f0f0f0",
   textAlign: "left",
+  fontSize: "15px",
+  fontWeight: "600",
+  color: "#333",
 };
 
 const tdStyle = {
-  border: "1px solid #ddd",
-  padding: "8px",
+  padding: "12px 16px",
+  borderBottom: "1px solid #eee",
+  fontSize: "13px",
+};
+
+const clickableCellStyle = {
+  ...tdStyle,
+  cursor: "pointer",
+  fontWeight: "500",
+  color: "#000",
 };
 
 const rowStyle = {
   transition: "background-color 0.2s",
 };
 
-const clickableCellStyle = {
+const badgeStyle = (color) => ({
+  padding: "4px 10px",
+  borderRadius: "20px",
+  backgroundColor: color,
+  color: "#fff",
+  fontSize: "12px",
+  fontWeight: "500",
+  display: "inline-block",
+});
+
+const timestampCellStyle = {
   ...tdStyle,
-  cursor: "pointer",
-  textDecoration: "underline",
-  textUnderlineOffset: "3px",
+  color: "#666", // softer gray for subtle look
+  fontSize: "12.5px", // slightly smaller than normal text
+  fontWeight: "400", // regular weight
 };

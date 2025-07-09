@@ -86,7 +86,7 @@
 }
 
 .data-table th {
-  background-color: #f0f0f0;
+  background-color: #dff5e3; /* Light mint green */
 }
 
 .modal-overlay {
@@ -103,7 +103,7 @@
 }
 
 .modal-content {
-  background: white;
+  background: #f9fdfb; /* Light pale green */
   padding: 20px;
   border-radius: 8px;
   min-width: 400px;

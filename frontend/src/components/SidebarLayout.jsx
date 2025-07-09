@@ -13,50 +13,54 @@ export default function SidebarLayout({ children }) {
   const isActive = (path) => location.pathname.startsWith(path);
 
   return (
-    <div style={{ display: "flex", height: "100vh" }}>
+    <div
+      style={{
+        display: "flex",
+        height: "100vh",
+        fontFamily: "Poppins, sans-serif",
+      }}
+    >
       {/* Sidebar */}
       <div
         style={{
-          width: collapsed ? "60px" : "200px",
-          background: "#2c3e50",
-          color: "white",
-          transition: "width 0.3s",
+          width: collapsed ? "64px" : "220px",
+          background: "#3b4252",
+          color: "#3b4252",
+          transition: "width 0.3s ease",
           display: "flex",
           flexDirection: "column",
-          alignItems: "stretch",
-          overflow: "hidden",
+          boxShadow: "2px 0 4px rgba(0,0,0,0.1)",
         }}
       >
         <div
           style={{
+            padding: "16px",
             display: "flex",
             justifyContent: collapsed ? "center" : "flex-end",
-            padding: "10px",
           }}
         >
           <button
             onClick={() => setCollapsed(!collapsed)}
             style={{
               background: "none",
-              color: "white",
               border: "none",
-              cursor: "pointer",
+              color: "#fff",
               fontSize: "18px",
+              cursor: "pointer",
             }}
+            title="Toggle sidebar"
           >
             {collapsed ? "☰" : "«"}
           </button>
         </div>
 
-        <nav style={{ display: "flex", flexDirection: "column" }}>
+        <nav style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
           <SidebarLink
             to="/dashboard"
             icon="📊"
             label="Dashboard"
             collapsed={collapsed}
-            active={
-              isActive("/dashboard") && location.pathname === "/dashboard"
-            }
+            active={location.pathname === "/dashboard"}
           />
           <SidebarLink
             to="/dashboard/faults"
@@ -94,26 +98,31 @@ export default function SidebarLayout({ children }) {
         {/* Topbar */}
         <div
           style={{
-            background: "#fff",
-            padding: "10px 20px",
+            background: "#f0f0ff",
+            padding: "12px 24px",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            borderBottom: "1px solid #ddd",
+            borderBottom: "1px solid #e2e8f0",
+            boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
           }}
         >
-          <div style={{ fontWeight: "bold", fontSize: "18px" }}>
+          <div
+            style={{ fontSize: "18px", fontWeight: "600", color: "#1e293b" }}
+          >
             NOC Fault Logger Admin
           </div>
           <button
             onClick={handleLogout}
             style={{
-              background: "red",
+              backgroundColor: "#2563eb",
               color: "white",
               border: "none",
-              padding: "6px 12px",
-              borderRadius: "4px",
+              padding: "6px 14px",
+              borderRadius: "6px",
+              fontSize: "14px",
               cursor: "pointer",
+              boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
             }}
           >
             Logout
@@ -124,9 +133,11 @@ export default function SidebarLayout({ children }) {
         <div
           style={{
             flex: 1,
-            overflow: "auto",
-            padding: "20px",
-            backgroundColor: "#ecf0f1",
+            overflowY: "auto",
+            padding: "24px",
+            backgroundColor: "#f8f8ff",
+            display: "flex",
+            flexDirection: "column",
           }}
         >
           {children}
@@ -140,20 +151,24 @@ function SidebarLink({ to, icon, label, collapsed, active }) {
   return (
     <Link
       to={to}
+      title={collapsed ? label : ""}
       style={{
         display: "flex",
         alignItems: "center",
-        padding: "10px 15px",
-        backgroundColor: active ? "#007bff" : "transparent",
-        color: active ? "white" : "white",
+        padding: "10px 16px",
+        backgroundColor: active ? "#2563eb" : "transparent",
+        color: active ? "#fff" : "#e2e8f0",
         textDecoration: "none",
-        whiteSpace: "nowrap",
-        fontWeight: active ? "bold" : "normal",
-        transition: "background-color 0.2s",
+        fontWeight: active ? "600" : "400",
+        borderRadius: "6px",
+        margin: "0 8px",
+        transition: "background-color 0.2s ease",
       }}
     >
-      <span style={{ marginRight: collapsed ? "0" : "10px" }}>{icon}</span>
-      {!collapsed && label}
+      <span style={{ marginRight: collapsed ? "0" : "10px", fontSize: "16px" }}>
+        {icon}
+      </span>
+      {!collapsed && <span>{label}</span>}
     </Link>
   );
 }

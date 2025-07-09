@@ -1,9 +1,17 @@
 const express = require("express");
 const router = express.Router();
 const authMiddleware = require("../middleware/authMiddleware");
-const { User, Fault, Department, Customer, FaultNote } = require("../models");
+const {
+  User,
+  Fault,
+  Department,
+  Customer,
+  FaultNote,
+  FaultHistory,
+} = require("../models");
 const { Op } = require("sequelize");
 const ExcelJS = require("exceljs");
+const PDFDocument = require("pdfkit");
 
 function calculateSeverity(pendingHours) {
   if (pendingHours < 4) return "Low";
@@ -12,109 +20,167 @@ function calculateSeverity(pendingHours) {
   return "Critical";
 }
 
+function getDateRange(filter) {
+  const now = new Date();
+  let startDate;
+
+  switch (filter) {
+    case "day":
+      startDate = new Date(now);
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    case "week":
+      startDate = new Date(now);
+      startDate.setDate(now.getDate() - 6);
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    case "month":
+      startDate = new Date(now);
+      startDate.setDate(now.getDate() - 29);
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    case "year":
+      startDate = new Date(now);
+      startDate.setFullYear(now.getFullYear() - 1);
+      startDate.setHours(0, 0, 0, 0);
+      break;
+    default:
+      return null;
+  }
+
+  return { start: startDate, end: now };
+}
+
+const getFilteredFaults = async (req) => {
+  const {
+    status,
+    department_id,
+    severity,
+    search,
+    timeRange = "week",
+  } = req.query;
+  const whereClause = {};
+
+  if (status && status !== "all") {
+    whereClause.status = status;
+  }
+
+  if (department_id && department_id !== "all") {
+    whereClause.assigned_to_id = department_id;
+  }
+
+  let customerIds = [];
+
+  if (search) {
+    const customers = await Customer.findAll({
+      where: {
+        [Op.or]: [
+          { company: { [Op.like]: `%${search}%` } },
+          { circuit_id: { [Op.like]: `%${search}%` } },
+        ],
+      },
+      attributes: ["id"],
+    });
+    customerIds = customers.map((c) => c.id);
+  }
+
+  if (search) {
+    whereClause[Op.or] = [
+      { ticket_number: { [Op.like]: `%${search}%` } },
+      { description: { [Op.like]: `%${search}%` } },
+      { type: { [Op.like]: `%${search}%` } },
+    ];
+    if (customerIds.length > 0) {
+      whereClause[Op.or].push({ customer_id: { [Op.in]: customerIds } });
+    }
+  }
+
+  let dateFilter = {};
+  const now = new Date();
+
+  if (timeRange === "day") {
+    const startOfDay = new Date(now.setHours(0, 0, 0, 0));
+    dateFilter = { createdAt: { [Op.gte]: startOfDay } };
+  } else if (timeRange === "week") {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(now.getDate() - 6);
+    dateFilter = { createdAt: { [Op.gte]: sevenDaysAgo } };
+  } else if (timeRange === "month") {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(now.getDate() - 30);
+    dateFilter = { createdAt: { [Op.gte]: thirtyDaysAgo } };
+  } else if (timeRange === "year") {
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(now.getFullYear() - 1);
+    dateFilter = { createdAt: { [Op.gte]: oneYearAgo } };
+  }
+
+  const faults = await Fault.findAll({
+    where: { ...whereClause, ...dateFilter },
+    order: [["createdAt", "DESC"]],
+    include: [
+      {
+        model: Department,
+        as: "department",
+        attributes: ["id", "name"],
+      },
+      {
+        model: Customer,
+        as: "customer",
+        attributes: [
+          "id",
+          "company",
+          "circuit_id",
+          "type",
+          "location",
+          "ip_address",
+          "pop_site",
+          "email",
+          "switch_info",
+          "owner",
+        ],
+      },
+      { model: User, as: "resolvedBy", attributes: ["id", "username"] },
+      { model: User, as: "closedBy", attributes: ["id", "username"] },
+    ],
+  });
+
+  const result = faults.map((fault) => {
+    const json = fault.toJSON();
+    const endTime =
+      fault.status === "Resolved" && fault.resolvedAt
+        ? new Date(fault.resolvedAt)
+        : fault.status === "Closed" && fault.closedAt
+        ? new Date(fault.closedAt)
+        : new Date();
+
+    const created = new Date(fault.createdAt);
+    const diffHours = (endTime - created) / (1000 * 60 * 60);
+    json.pending_hours = parseFloat(diffHours.toFixed(1));
+
+    if (fault.status === "Open" || fault.status === "In Progress") {
+      json.severity = calculateSeverity(diffHours);
+    } else {
+      json.severity = fault.severity;
+    }
+
+    return json;
+  });
+
+  return severity && severity !== "all"
+    ? result.filter((f) => f.severity === severity)
+    : result;
+};
+
 router.get("/", authMiddleware, async (req, res) => {
   try {
-    const { status, department_id, severity, search } = req.query;
-
-    const whereClause = {};
-
-    if (status && status !== "all") {
-      whereClause.status = status;
-    }
-
-    if (department_id && department_id !== "all") {
-      whereClause.assigned_to_id = department_id;
-    }
-
-    if (severity && severity !== "all") {
-      whereClause.severity = severity;
-    }
-
-    let customerIds = [];
-
-    // Step 1: Search customers if search term provided
-    if (search) {
-      const customers = await Customer.findAll({
-        where: {
-          [Op.or]: [
-            { company: { [Op.like]: `%${search}%` } },
-            { circuit_id: { [Op.like]: `%${search}%` } },
-          ],
-        },
-        attributes: ["id"],
-      });
-      customerIds = customers.map((c) => c.id);
-    }
-
-    // Step 2: Build Fault search
-    if (search) {
-      whereClause[Op.or] = [
-        { ticket_number: { [Op.like]: `%${search}%` } },
-        { description: { [Op.like]: `%${search}%` } },
-        { type: { [Op.like]: `%${search}%` } },
-      ];
-
-      if (customerIds.length > 0) {
-        whereClause[Op.or].push({ customer_id: { [Op.in]: customerIds } });
-      }
-    }
-
-    const faults = await Fault.findAll({
-      where: whereClause,
-      order: [["createdAt", "DESC"]],
-      include: [
-        {
-          model: Department,
-          as: "department",
-          attributes: ["id", "name"],
-        },
-        {
-          model: Customer,
-          as: "customer",
-          attributes: [
-            "id",
-            "company",
-            "circuit_id",
-            "type",
-            "location",
-            "ip_address",
-            "pop_site",
-            "email",
-            "switch_info",
-            "owner",
-          ],
-        },
-        { model: User, as: "resolvedBy", attributes: ["id", "username"] },
-        {
-          model: User,
-          as: "closedBy",
-          attributes: ["id", "username"],
-        },
-      ],
-    });
-
-    const now = new Date();
-    const result = faults.map((fault) => {
-      const json = fault.toJSON();
-
-      if (fault.status === "Open" || fault.status === "In Progress") {
-        const created = new Date(fault.createdAt);
-        const diffHours = (now - created) / (1000 * 60 * 60);
-        json.pending_hours = parseFloat(diffHours.toFixed(1));
-        json.severity = calculateSeverity(diffHours);
-      }
-
-      return json;
-    });
-
-    res.json(result);
+    const faults = await getFilteredFaults(req);
+    res.json(faults);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error fetching faults" });
   }
 });
-
-module.exports = router;
 
 router.post("/", authMiddleware, async (req, res) => {
   const {
@@ -155,8 +221,6 @@ router.post("/", authMiddleware, async (req, res) => {
     res.status(500).json({ message: "Server error creating fault" });
   }
 });
-
-const { FaultHistory } = require("../models"); // make sure this is at the top
 
 router.put("/:id", authMiddleware, async (req, res) => {
   try {
@@ -209,7 +273,6 @@ router.put("/:id", authMiddleware, async (req, res) => {
         fault.severity = calculateSeverity(calculatedPendingHours);
       }
 
-      // ✅ Save to FaultHistory table
       await FaultHistory.create({
         fault_id: fault.id,
         previous_status: previousStatus,
@@ -226,8 +289,6 @@ router.put("/:id", authMiddleware, async (req, res) => {
     res.status(500).json({ message: "Server error updating fault" });
   }
 });
-
-module.exports = router;
 
 // GET /api/faults/:id/details - Get full fault details with customer and notes
 router.get("/:id/details", authMiddleware, async (req, res) => {
@@ -421,3 +482,256 @@ router.get("/export", authMiddleware, async (req, res) => {
     res.status(500).json({ message: "Failed to export faults" });
   }
 });
+
+router.get("/metrics", authMiddleware, async (req, res) => {
+  try {
+    const { timeRange } = req.query;
+    const dateRange = getDateRange(timeRange);
+
+    const where = dateRange
+      ? { createdAt: { [Op.between]: [dateRange.start, dateRange.end] } }
+      : {};
+
+    const faults = await Fault.findAll({
+      where,
+      include: [
+        {
+          model: Department,
+          as: "department",
+          attributes: ["id", "name"],
+        },
+      ],
+    });
+
+    const now = new Date();
+
+    const summary = {
+      total: faults.length,
+      statusCounts: {
+        Open: 0,
+        "In Progress": 0,
+        Resolved: 0,
+        Closed: 0,
+      },
+      severityCounts: {
+        Low: 0,
+        Medium: 0,
+        High: 0,
+        Critical: 0,
+      },
+      departmentCounts: {},
+    };
+
+    for (let fault of faults) {
+      summary.statusCounts[fault.status]++;
+
+      let endTime = now;
+      if (fault.status === "Resolved" && fault.resolvedAt)
+        endTime = new Date(fault.resolvedAt);
+      else if (fault.status === "Closed" && fault.closedAt)
+        endTime = new Date(fault.closedAt);
+
+      const pendingHours =
+        (endTime - new Date(fault.createdAt)) / (1000 * 60 * 60);
+
+      const severity =
+        fault.status === "Open" || fault.status === "In Progress"
+          ? calculateSeverity(pendingHours)
+          : fault.severity;
+
+      if (summary.severityCounts[severity] !== undefined) {
+        summary.severityCounts[severity]++;
+      }
+
+      const deptName = fault.department?.name || "Unassigned";
+      summary.departmentCounts[deptName] =
+        (summary.departmentCounts[deptName] || 0) + 1;
+    }
+
+    res.json(summary);
+  } catch (err) {
+    console.error("Metrics error:", err);
+    res.status(500).json({ message: "Error generating metrics" });
+  }
+});
+
+router.get("/charts", authMiddleware, async (req, res) => {
+  try {
+    const { timeRange } = req.query;
+    const dateRange = getDateRange(timeRange);
+
+    const where = dateRange
+      ? { createdAt: { [Op.between]: [dateRange.start, dateRange.end] } }
+      : {};
+
+    const faults = await Fault.findAll({
+      where,
+      include: [
+        {
+          model: Department,
+          as: "department",
+          attributes: ["id", "name"],
+        },
+      ],
+    });
+
+    const now = new Date();
+
+    const severityData = {
+      Low: 0,
+      Medium: 0,
+      High: 0,
+      Critical: 0,
+    };
+
+    const departmentData = {};
+
+    const days = [...Array(7)].map((_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (6 - i));
+      return date.toISOString().split("T")[0];
+    });
+    const faultsPerDay = {};
+    days.forEach((day) => {
+      faultsPerDay[day] = 0;
+    });
+
+    for (let fault of faults) {
+      let endTime = now;
+      if (fault.status === "Resolved" && fault.resolvedAt) {
+        endTime = new Date(fault.resolvedAt);
+      } else if (fault.status === "Closed" && fault.closedAt) {
+        endTime = new Date(fault.closedAt);
+      }
+
+      const created = new Date(fault.createdAt);
+      const pendingHours = (endTime - created) / (1000 * 60 * 60);
+
+      const severity =
+        fault.status === "Open" || fault.status === "In Progress"
+          ? calculateSeverity(pendingHours)
+          : fault.severity;
+
+      if (severityData[severity] !== undefined) {
+        severityData[severity]++;
+      }
+
+      const dept = fault.department?.name || "Unassigned";
+      departmentData[dept] = (departmentData[dept] || 0) + 1;
+
+      const faultDate = created.toISOString().split("T")[0];
+      if (faultsPerDay[faultDate] !== undefined) {
+        faultsPerDay[faultDate]++;
+      }
+    }
+
+    res.json({
+      severityData,
+      departmentData,
+      faultsPerDay,
+    });
+  } catch (err) {
+    console.error("Charts error:", err);
+    res.status(500).json({ message: "Error generating chart data" });
+  }
+});
+
+router.post("/export/pdf", authMiddleware, async (req, res) => {
+  try {
+    const faults = await getFilteredFaults(req);
+    const { chartImage } = req.body;
+
+    const doc = new PDFDocument({ margin: 30, size: "A4" });
+
+    let buffers = [];
+    doc.on("data", buffers.push.bind(buffers));
+    doc.on("end", () => {
+      const pdfData = Buffer.concat(buffers);
+      res
+        .writeHead(200, {
+          "Content-Length": Buffer.byteLength(pdfData),
+          "Content-Type": "application/pdf",
+          "Content-Disposition":
+            "attachment;filename=faults_report_with_charts.pdf",
+        })
+        .end(pdfData);
+    });
+
+    // Title
+    doc
+      .fontSize(18)
+      .font("Helvetica-Bold")
+      .text("NOC Fault Report", { align: "center" });
+    doc.moveDown(1);
+
+    // Insert chart image if present
+    if (chartImage) {
+      const base64Data = chartImage.replace(/^data:image\/\w+;base64,/, "");
+      const buffer = Buffer.from(base64Data, "base64");
+      doc.image(buffer, { fit: [500, 250], align: "center" });
+      doc.moveDown(1);
+    }
+
+    // Table Headers
+    const headers = [
+      { label: "Ticket", x: 30 },
+      { label: "Company", x: 120 },
+      { label: "Status", x: 270 },
+      { label: "Severity", x: 350 },
+      { label: "Created", x: 430 },
+    ];
+
+    let y = doc.y;
+    doc.font("Helvetica-Bold").fontSize(11);
+    headers.forEach((h) => doc.text(h.label, h.x, y));
+    y += 15;
+
+    // Divider line under headers
+    doc
+      .moveTo(30, y)
+      .lineTo(570, y)
+      .lineWidth(0.5)
+      .strokeColor("#000")
+      .stroke();
+    y += 5;
+
+    // Table Rows
+    doc.font("Helvetica").fontSize(10);
+    faults.forEach((fault) => {
+      if (y > 750) {
+        doc.addPage();
+        y = 50;
+      }
+
+      doc.text(fault.ticket_number || "-", headers[0].x, y, { width: 90 });
+      doc.text(fault.customer?.company || "-", headers[1].x, y, { width: 140 });
+      doc.text(fault.status || "-", headers[2].x, y, { width: 80 });
+      doc.text(fault.severity || "-", headers[3].x, y, { width: 70 });
+      doc.text(
+        fault.createdAt ? new Date(fault.createdAt).toLocaleString() : "-",
+        headers[4].x,
+        y,
+        { width: 130 }
+      );
+
+      y += 18;
+
+      // Light row separator
+      doc
+        .moveTo(30, y - 3)
+        .lineTo(570, y - 3)
+        .lineWidth(0.3)
+        .strokeColor("#ccc")
+        .stroke();
+    });
+
+    doc.end();
+  } catch (error) {
+    console.error("PDF Export Error:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to export faults as PDF with charts." });
+  }
+});
+
+module.exports = router;

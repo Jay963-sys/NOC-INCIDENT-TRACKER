@@ -3,6 +3,9 @@ import api from "../services/api";
 import NewFaultForm from "../components/NewFaultForm";
 import FaultList from "../components/FaultList";
 import FaultDetailsDrawer from "../components/FaultDetailsDrawer";
+import FaultCharts from "../components/FaultCharts";
+import DashboardMetrics from "../components/DashboardMetrics";
+import html2canvas from "html2canvas";
 
 export default function Dashboard() {
   const [faults, setFaults] = useState([]);
@@ -14,6 +17,8 @@ export default function Dashboard() {
   const [departmentFilter, setDepartmentFilter] = useState("All");
   const [severityFilter, setSeverityFilter] = useState("All");
   const [showNewFaultModal, setShowNewFaultModal] = useState(false);
+  const [chartData, setChartData] = useState(null);
+  const [timeRange, setTimeRange] = useState("week");
 
   const fetchFaults = async ({
     status = activeTab,
@@ -30,6 +35,7 @@ export default function Dashboard() {
           department === "All" ? "all" : getDepartmentId(department),
         severity: severity === "All" ? "all" : severity,
         search: search.trim() || undefined,
+        timeRange,
       };
 
       const res = await api.get("/faults", { params });
@@ -42,15 +48,44 @@ export default function Dashboard() {
     }
   };
 
+  const [metricsData, setMetricsData] = useState(null);
+
+  const fetchMetrics = async () => {
+    try {
+      const res = await api.get("/faults/metrics", {
+        params: { timeRange },
+      });
+      setMetricsData(res.data);
+    } catch (err) {
+      console.error("Failed to fetch metrics:", err);
+    }
+  };
+
+  const fetchCharts = async () => {
+    try {
+      const res = await api.get("/faults/charts", {
+        params: { timeRange },
+      });
+      setChartData({
+        faultsBySeverity: res.data.severityData,
+        faultsByDepartment: res.data.departmentData,
+      });
+    } catch (err) {
+      console.error("Failed to fetch chart data:", err);
+    }
+  };
+
   useEffect(() => {
     fetchFaults();
+    fetchCharts();
+    fetchMetrics();
     // eslint-disable-next-line
-  }, []);
+  }, [timeRange]);
 
   useEffect(() => {
     fetchFaults();
     // eslint-disable-next-line
-  }, [activeTab, departmentFilter, severityFilter, searchTerm]);
+  }, [activeTab, departmentFilter, severityFilter, searchTerm, timeRange]);
 
   const handleRowClick = (fault) => {
     setSelectedFault(fault);
@@ -117,6 +152,25 @@ export default function Dashboard() {
         </select>
       </div>
 
+      <select
+        value={timeRange}
+        onChange={(e) => setTimeRange(e.target.value)}
+        style={inputStyle}
+      >
+        <option value="day">Today</option>
+        <option value="week">This Week</option>
+        <option value="month">This Month</option>
+        <option value="year">This Year</option>
+      </select>
+
+      {/* Dashboard Metrics Section */}
+      {metricsData && <DashboardMetrics metrics={metricsData} />}
+
+      {/* Charts Section */}
+      <div id="chart-section">
+        {chartData && <FaultCharts chartData={chartData} />}
+      </div>
+
       {/* Export to Excel Button */}
       <button
         onClick={async () => {
@@ -131,7 +185,7 @@ export default function Dashboard() {
                 severity: severityFilter === "All" ? "all" : severityFilter,
                 search: searchTerm.trim() || undefined,
               },
-              responseType: "blob", // This ensures the Excel binary file is handled correctly
+              responseType: "blob",
             });
 
             const blob = new Blob([response.data], {
@@ -161,6 +215,60 @@ export default function Dashboard() {
         }}
       >
         📥 Export to Excel
+      </button>
+
+      <button
+        onClick={async () => {
+          try {
+            const chartElement = document.getElementById("chart-section");
+
+            let chartImage = null;
+            if (chartElement) {
+              const canvas = await html2canvas(chartElement);
+              chartImage = canvas.toDataURL("image/png");
+            }
+
+            const response = await api.post(
+              "/faults/export/pdf",
+              {
+                chartImage,
+                status: activeTab.toLowerCase() === "all" ? "all" : activeTab,
+                department_id:
+                  departmentFilter === "All"
+                    ? "all"
+                    : getDepartmentId(departmentFilter),
+                severity: severityFilter === "All" ? "all" : severityFilter,
+                search: searchTerm.trim() || undefined,
+                timeRange,
+              },
+              { responseType: "blob" }
+            );
+
+            const blob = new Blob([response.data], { type: "application/pdf" });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", "faults_report_with_charts.pdf");
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+          } catch (error) {
+            console.error("PDF export failed:", error);
+            alert("Failed to export PDF");
+          }
+        }}
+        style={{
+          marginBottom: "20px",
+          padding: "8px 14px",
+          backgroundColor: "#dc3545",
+          color: "white",
+          border: "none",
+          borderRadius: "5px",
+          cursor: "pointer",
+          marginLeft: "10px",
+        }}
+      >
+        🧾 Export PDF
       </button>
 
       {/* Fault Table */}
