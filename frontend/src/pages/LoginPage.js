@@ -14,7 +14,14 @@ export default function LoginPage() {
     try {
       const res = await api.post("/auth/login", { username, password });
       localStorage.setItem("token", res.data.token.trim());
-      navigate("/dashboard");
+      localStorage.setItem("user", JSON.stringify(res.data.user));
+
+      const role = res.data.user?.role;
+      if (role === "admin") {
+        navigate("/dashboard");
+      } else {
+        navigate("/department/dashboard");
+      }
     } catch (err) {
       setError(
         err.response?.data?.message || "Login failed. Please try again."

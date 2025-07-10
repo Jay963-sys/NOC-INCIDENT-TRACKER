@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-
 export default function SidebarLayout({ children }) {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const user = JSON.parse(localStorage.getItem("user"));
+  const isAdmin = user?.role === "admin";
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -55,41 +56,58 @@ export default function SidebarLayout({ children }) {
         </div>
 
         <nav style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+          {/* Dashboard Link */}
           <SidebarLink
-            to="/dashboard"
+            to={isAdmin ? "/dashboard" : "/department/dashboard"}
             icon="📊"
             label="Dashboard"
             collapsed={collapsed}
-            active={location.pathname === "/dashboard"}
+            active={
+              isAdmin
+                ? location.pathname === "/dashboard"
+                : location.pathname === "/department/dashboard"
+            }
           />
+
+          {/* Faults Page Link */}
           <SidebarLink
-            to="/dashboard/faults"
+            to={isAdmin ? "/dashboard/faults" : "/department/faults"}
             icon="🛠️"
             label="Faults"
             collapsed={collapsed}
-            active={isActive("/dashboard/faults")}
+            active={
+              isAdmin
+                ? location.pathname.startsWith("/dashboard/faults")
+                : location.pathname === "/department/faults"
+            }
           />
-          <SidebarLink
-            to="/customers"
-            icon="🏢"
-            label="Customers"
-            collapsed={collapsed}
-            active={isActive("/customers")}
-          />
-          <SidebarLink
-            to="/users"
-            icon="👤"
-            label="Users"
-            collapsed={collapsed}
-            active={isActive("/users")}
-          />
-          <SidebarLink
-            to="/departments"
-            icon="🏬"
-            label="Departments"
-            collapsed={collapsed}
-            active={isActive("/departments")}
-          />
+
+          {/* Admin-only Links */}
+          {isAdmin && (
+            <>
+              <SidebarLink
+                to="/customers"
+                icon="🏢"
+                label="Customers"
+                collapsed={collapsed}
+                active={isActive("/customers")}
+              />
+              <SidebarLink
+                to="/users"
+                icon="👤"
+                label="Users"
+                collapsed={collapsed}
+                active={isActive("/users")}
+              />
+              <SidebarLink
+                to="/departments"
+                icon="🏬"
+                label="Departments"
+                collapsed={collapsed}
+                active={isActive("/departments")}
+              />
+            </>
+          )}
         </nav>
       </div>
 
@@ -110,7 +128,7 @@ export default function SidebarLayout({ children }) {
           <div
             style={{ fontSize: "18px", fontWeight: "600", color: "#1e293b" }}
           >
-            NOC Fault Logger Admin
+            {isAdmin ? "NOC Fault Logger Admin" : "Department Dashboard"}
           </div>
           <button
             onClick={handleLogout}

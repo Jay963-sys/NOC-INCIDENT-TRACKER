@@ -85,15 +85,42 @@ export default function FaultDetailsDrawer({ fault, onClose }) {
         <div>
           {activeTab === "Details" && (
             <div style={gridStyle}>
-              <div>
-                <strong>Customer:</strong>
-              </div>
-              <div>{details.customer?.company}</div>
+              <>
+                <div>
+                  <strong>Company:</strong>
+                </div>
+                <div>{details.customer?.company}</div>
 
-              <div>
-                <strong>Circuit ID:</strong>
-              </div>
-              <div>{details.customer?.circuit_id}</div>
+                <div>
+                  <strong>Circuit ID:</strong>
+                </div>
+                <div>{details.customer?.circuit_id}</div>
+
+                <div>
+                  <strong>Location:</strong>
+                </div>
+                <div>{details.customer?.location}</div>
+
+                <div>
+                  <strong>IP Address:</strong>
+                </div>
+                <div>{details.customer?.ip_address}</div>
+
+                <div>
+                  <strong>POP Site:</strong>
+                </div>
+                <div>{details.customer?.pop_site}</div>
+
+                <div>
+                  <strong>Switch Info:</strong>
+                </div>
+                <div>{details.customer?.switch_info}</div>
+
+                <div>
+                  <strong>Email:</strong>
+                </div>
+                <div>{details.customer?.email}</div>
+              </>
 
               <div>
                 <strong>Department:</strong>
@@ -246,21 +273,31 @@ export default function FaultDetailsDrawer({ fault, onClose }) {
                       key={f.id}
                       style={{ ...historyCardStyle, cursor: "pointer" }}
                       onClick={() => {
+                        if (!f?.id) return;
+
                         setDetails(null);
                         setNotes([]);
                         setActiveTab("Details");
-                        api.get(`/faults/${f.id}/details`).then((res) => {
-                          setDetails(res.data.fault);
-                          setNotes(res.data.notes || []);
-                        });
-                        api.get(`/faults/${f.id}/history`).then((res) => {
-                          setStatusHistory(res.data || []);
-                        });
-                        api
-                          .get(`/customers/${f.customer.id}/history`)
-                          .then((res) => {
-                            setHistory(res.data || []);
+
+                        // Smoothly reset the drawer before loading new fault
+                        setTimeout(() => {
+                          api.get(`/faults/${f.id}/details`).then((res) => {
+                            setDetails(res.data.fault);
+                            setNotes(res.data.notes || []);
                           });
+                          api.get(`/faults/${f.id}/history`).then((res) => {
+                            setStatusHistory(res.data || []);
+                          });
+
+                          // Only fetch customer history if customer info is available
+                          if (f.customer?.id) {
+                            api
+                              .get(`/customers/${f.customer.id}/history`)
+                              .then((res) => {
+                                setHistory(res.data || []);
+                              });
+                          }
+                        }, 100);
                       }}
                     >
                       <div style={{ fontWeight: "bold" }}>

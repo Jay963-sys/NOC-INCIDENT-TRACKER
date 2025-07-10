@@ -10,6 +10,7 @@ const {
   FaultHistory,
 } = require("../models");
 const { Op } = require("sequelize");
+const { Sequelize } = require("sequelize");
 const ExcelJS = require("exceljs");
 const PDFDocument = require("pdfkit");
 
@@ -731,6 +732,194 @@ router.post("/export/pdf", authMiddleware, async (req, res) => {
     res
       .status(500)
       .json({ message: "Failed to export faults as PDF with charts." });
+  }
+});
+
+// GET faults assigned to the logged-in user's department
+router.get("/department/dashboard", authMiddleware, async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user || user.role !== "user") {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    const { status, severity, search } = req.query;
+    const where = {
+      assigned_to_id: user.department_id,
+    };
+
+    if (status && status !== "all") {
+      where.status = status;
+    }
+
+    // Remove severity from the initial DB filter
+    // if (severity && severity !== "all") {
+    //   where.severity = severity;
+    // }
+
+    if (search) {
+      where[Op.or] = [
+        { ticket_number: { [Op.like]: `%${search}%` } },
+        { description: { [Op.like]: `%${search}%` } },
+        { "$customer.company$": { [Op.like]: `%${search}%` } },
+        { "$customer.circuit_id$": { [Op.like]: `%${search}%` } },
+      ];
+    }
+
+    const faults = await Fault.findAll({
+      where,
+      include: [
+        { model: Customer, as: "customer" },
+        { model: Department, as: "department" },
+        { model: User, as: "resolvedBy" },
+        { model: User, as: "closedBy" },
+        { model: FaultNote, as: "notes" },
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+
+    // Inject pending_hours and severity for each fault
+    const now = new Date();
+    const enriched = faults.map((fault) => {
+      const created = new Date(fault.createdAt);
+      const diffHours = Math.abs(now - created) / 36e5;
+
+      const pending_hours =
+        fault.status === "Resolved" || fault.status === "Closed"
+          ? "Resolved"
+          : parseFloat(diffHours.toFixed(1));
+
+      let calculatedSeverity = fault.severity;
+      if (fault.status !== "Resolved" && fault.status !== "Closed") {
+        if (diffHours < 4) calculatedSeverity = "Low";
+        else if (diffHours < 12) calculatedSeverity = "Medium";
+        else if (diffHours < 24) calculatedSeverity = "High";
+        else calculatedSeverity = "Critical";
+      }
+
+      return {
+        ...fault.toJSON(),
+        pending_hours,
+        severity: calculatedSeverity,
+      };
+    });
+
+    // ✅ Filter based on dynamic severity
+    const filtered =
+      severity && severity !== "all"
+        ? enriched.filter((f) => f.severity === severity)
+        : enriched;
+
+    res.json(filtered);
+  } catch (err) {
+    console.error("Error loading department faults:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// GET /faults/department/metrics
+router.get("/department/metrics", authMiddleware, async (req, res) => {
+  try {
+    const departmentId = req.user.department_id;
+
+    const statuses = ["Open", "In Progress", "Resolved", "Closed"];
+    const counts = {};
+
+    for (const status of statuses) {
+      const count = await Fault.count({
+        where: {
+          assigned_to_id: departmentId,
+          status,
+        },
+      });
+      counts[status] = count;
+    }
+
+    res.json({
+      open: counts["Open"] || 0,
+      in_progress: counts["In Progress"] || 0,
+      resolved: counts["Resolved"] || 0,
+      closed: counts["Closed"] || 0,
+    });
+  } catch (err) {
+    console.error("Error in /department/metrics:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// GET /faults/department/charts
+router.get("/department/charts", authMiddleware, async (req, res) => {
+  try {
+    const departmentId = req.user.department_id;
+    console.log("User department ID:", departmentId);
+
+    const faults = await Fault.findAll({
+      where: { assigned_to_id: departmentId },
+      attributes: ["id", "createdAt", "status"], // You only need what's required
+    });
+
+    const now = new Date();
+    const severityCounts = {
+      Low: 0,
+      Medium: 0,
+      High: 0,
+      Critical: 0,
+    };
+
+    faults.forEach((fault) => {
+      const created = new Date(fault.createdAt);
+      const diffHours = Math.abs(now - created) / 36e5;
+
+      if (fault.status === "Resolved" || fault.status === "Closed") {
+        // Optional: count them separately or skip if you don't want them in chart
+        return;
+      }
+
+      if (diffHours < 4) severityCounts.Low++;
+      else if (diffHours < 12) severityCounts.Medium++;
+      else if (diffHours < 24) severityCounts.High++;
+      else severityCounts.Critical++;
+    });
+
+    // Convert to array format like frontend expects
+    const severity = Object.keys(severityCounts).map((key) => ({
+      severity: key,
+      count: severityCounts[key],
+    }));
+
+    // Keep status and trend same as before
+    const statusCountsRaw = await Fault.findAll({
+      where: { assigned_to_id: departmentId },
+      attributes: [
+        "status",
+        [Sequelize.fn("COUNT", Sequelize.col("id")), "count"],
+      ],
+      group: ["status"],
+    });
+    const status = statusCountsRaw.map((s) => s.get({ plain: true }));
+
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+
+    const trendRaw = await Fault.findAll({
+      where: {
+        assigned_to_id: departmentId,
+        createdAt: { [Op.gte]: sevenDaysAgo },
+      },
+      attributes: [
+        [Sequelize.fn("DATE", Sequelize.col("createdAt")), "date"],
+        [Sequelize.fn("COUNT", Sequelize.col("id")), "count"],
+      ],
+      group: [Sequelize.fn("DATE", Sequelize.col("createdAt"))],
+      order: [[Sequelize.fn("DATE", Sequelize.col("createdAt")), "ASC"]],
+    });
+
+    const trend = trendRaw.map((t) => t.get({ plain: true }));
+
+    res.json({ severity, status, trend });
+  } catch (err) {
+    console.error("Error in /department/charts:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 

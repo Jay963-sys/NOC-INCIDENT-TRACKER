@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { User } = require("../models"); // ✅ Correct import
+const { User } = require("../models");
 
 // Login Route
 router.post("/login", async (req, res) => {
@@ -53,8 +53,6 @@ router.post("/register", async (req, res) => {
       return res.status(400).json({ message: "Username already exists." });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-
     const user = await User.create({
       username,
       email,
@@ -62,6 +60,8 @@ router.post("/register", async (req, res) => {
       role,
       department_id: department_id || null,
     });
+
+    console.log("🧪 Created user with password:", user.password);
 
     return res.json({ message: "User registered successfully.", user });
   } catch (err) {
