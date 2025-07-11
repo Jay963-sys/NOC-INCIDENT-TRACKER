@@ -1,13 +1,30 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import api from "../services/api";
+import { toast } from "react-toastify";
 
-export default function FaultDetailsDrawer({ fault, onClose }) {
+export default function FaultDetailsDrawer({ fault, onClose, refreshTable }) {
   const [activeTab, setActiveTab] = useState("Details");
   const [details, setDetails] = useState(null);
   const [history, setHistory] = useState([]);
   const [notes, setNotes] = useState([]);
   const [newNote, setNewNote] = useState("");
   const [statusHistory, setStatusHistory] = useState([]);
+  const [departmentList, setDepartmentList] = useState([]);
+  const [selectedDept, setSelectedDept] = useState("");
+  const drawerRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (drawerRef.current && !drawerRef.current.contains(event.target)) {
+        onClose();
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [onClose]);
 
   useEffect(() => {
     if (!fault) return;
@@ -21,8 +38,14 @@ export default function FaultDetailsDrawer({ fault, onClose }) {
       setStatusHistory(res.data || []);
     });
 
-    api.get(`/customers/${fault.customer.id}/history`).then((res) => {
-      setHistory(res.data || []);
+    if (fault.customer?.id) {
+      api.get(`/customers/${fault.customer.id}/history`).then((res) => {
+        setHistory(res.data || []);
+      });
+    }
+
+    api.get("/departments").then((res) => {
+      setDepartmentList(res.data);
     });
   }, [fault]);
 
@@ -39,13 +62,33 @@ export default function FaultDetailsDrawer({ fault, onClose }) {
     await api.put(`/faults/${fault.id}`, { status: newStatus });
     const res = await api.get(`/faults/${fault.id}/details`);
     setDetails(res.data.fault);
+    if (refreshTable) refreshTable();
+  };
+
+  const handleDepartmentTransfer = async () => {
+    if (!selectedDept) return;
+    try {
+      await api.post(`/faults/${fault.id}/transfer`, {
+        department_id: parseInt(selectedDept, 10),
+      });
+      setSelectedDept("");
+      const res = await api.get(`/faults/${fault.id}/details`);
+      setDetails(res.data.fault);
+      setSelectedDept(null);
+      toast.success("Fault transferred successfully");
+      if (refreshTable) refreshTable();
+    } catch (err) {
+      toast.error("Failed to transfer fault");
+    }
   };
 
   if (!fault || !details) return null;
 
+  const isGeneral = !details.customer;
+
   return (
     <div style={overlayStyle}>
-      <div style={drawerStyle}>
+      <div style={drawerStyle} ref={drawerRef}>
         {/* Header */}
         <div style={headerStyle}>
           <h3 style={{ margin: 0 }}>
@@ -85,47 +128,93 @@ export default function FaultDetailsDrawer({ fault, onClose }) {
         <div>
           {activeTab === "Details" && (
             <div style={gridStyle}>
-              <>
-                <div>
-                  <strong>Company:</strong>
-                </div>
-                <div>{details.customer?.company}</div>
+              {!isGeneral && (
+                <>
+                  <div>
+                    <strong>Company:</strong>
+                  </div>
+                  <div>{details.customer?.company}</div>
 
-                <div>
-                  <strong>Circuit ID:</strong>
-                </div>
-                <div>{details.customer?.circuit_id}</div>
+                  <div>
+                    <strong>Circuit ID:</strong>
+                  </div>
+                  <div>{details.customer?.circuit_id}</div>
 
-                <div>
-                  <strong>Location:</strong>
-                </div>
-                <div>{details.customer?.location}</div>
+                  <div>
+                    <strong>Location:</strong>
+                  </div>
+                  <div>{details.customer?.location}</div>
 
-                <div>
-                  <strong>IP Address:</strong>
-                </div>
-                <div>{details.customer?.ip_address}</div>
+                  <div>
+                    <strong>IP Address:</strong>
+                  </div>
+                  <div>{details.customer?.ip_address}</div>
 
-                <div>
-                  <strong>POP Site:</strong>
-                </div>
-                <div>{details.customer?.pop_site}</div>
+                  <div>
+                    <strong>POP Site:</strong>
+                  </div>
+                  <div>{details.customer?.pop_site}</div>
 
-                <div>
-                  <strong>Switch Info:</strong>
-                </div>
-                <div>{details.customer?.switch_info}</div>
+                  <div>
+                    <strong>Switch Info:</strong>
+                  </div>
+                  <div>{details.customer?.switch_info}</div>
 
-                <div>
-                  <strong>Email:</strong>
-                </div>
-                <div>{details.customer?.email}</div>
-              </>
+                  <div>
+                    <strong>Email:</strong>
+                  </div>
+                  <div>{details.customer?.email}</div>
+                </>
+              )}
 
               <div>
                 <strong>Department:</strong>
               </div>
               <div>{details.department?.name || "N/A"}</div>
+
+              <div>
+                <strong>Transfer To:</strong>
+              </div>
+              <div>
+                <select
+                  value={selectedDept}
+                  onChange={(e) => setSelectedDept(e.target.value)}
+                  style={{
+                    padding: "4px",
+                    borderRadius: "4px",
+                    marginRight: "10px",
+                  }}
+                >
+                  <option value="" disabled>
+                    Select department
+                  </option>
+                  {departmentList
+                    .filter(
+                      (d) =>
+                        d.name.toLowerCase() !== "admin" &&
+                        d.id !== details.assigned_to_id
+                    )
+                    .map((dept) => (
+                      <option key={dept.id} value={dept.id}>
+                        {dept.name}
+                      </option>
+                    ))}
+                </select>
+                <button
+                  onClick={handleDepartmentTransfer}
+                  disabled={!selectedDept}
+                  style={{
+                    padding: "5px 10px",
+                    backgroundColor: "#007bff",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Transfer
+                </button>
+              </div>
 
               <div>
                 <strong>Description:</strong>
@@ -263,7 +352,7 @@ export default function FaultDetailsDrawer({ fault, onClose }) {
               <h4 style={{ marginBottom: "8px" }}>
                 Previous Faults (Same Customer)
               </h4>
-              {history.length <= 1 ? (
+              {!isGeneral && history.length <= 1 ? (
                 <p>No previous faults.</p>
               ) : (
                 history
@@ -279,7 +368,6 @@ export default function FaultDetailsDrawer({ fault, onClose }) {
                         setNotes([]);
                         setActiveTab("Details");
 
-                        // Smoothly reset the drawer before loading new fault
                         setTimeout(() => {
                           api.get(`/faults/${f.id}/details`).then((res) => {
                             setDetails(res.data.fault);
@@ -288,8 +376,6 @@ export default function FaultDetailsDrawer({ fault, onClose }) {
                           api.get(`/faults/${f.id}/history`).then((res) => {
                             setStatusHistory(res.data || []);
                           });
-
-                          // Only fetch customer history if customer info is available
                           if (f.customer?.id) {
                             api
                               .get(`/customers/${f.customer.id}/history`)
@@ -323,7 +409,7 @@ export default function FaultDetailsDrawer({ fault, onClose }) {
                   <div key={entry.id} style={noteCardStyle}>
                     <div>
                       <strong>
-                        {entry.previous_status} ➜ {entry.new_status}
+                        {entry.previous_status} ➔ {entry.new_status}
                       </strong>{" "}
                       <span style={{ fontSize: "0.8em", color: "#555" }}>
                         ({new Date(entry.createdAt).toLocaleString()})
@@ -348,16 +434,17 @@ export default function FaultDetailsDrawer({ fault, onClose }) {
   );
 }
 
-// Styles
+// Styles (unchanged below)
 const overlayStyle = {
   position: "fixed",
   top: 0,
-  right: 0,
-  bottom: 0,
   left: 0,
+  width: "100%",
+  height: "100%",
   backgroundColor: "rgba(0,0,0,0.5)",
   display: "flex",
   justifyContent: "flex-end",
+  alignItems: "stretch",
   zIndex: 1000,
 };
 
@@ -367,6 +454,8 @@ const drawerStyle = {
   height: "100%",
   padding: "20px",
   overflowY: "auto",
+  transform: "translateX(0)",
+  transition: "transform 0.3s ease-in-out",
 };
 
 const headerStyle = {

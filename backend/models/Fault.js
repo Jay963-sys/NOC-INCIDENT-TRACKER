@@ -26,6 +26,24 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: true,
     },
+
+    // New fields
+    customer_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    assigned_to_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    general_type: {
+      type: DataTypes.STRING, // e.g., "Switch", "Link", "FTTH"
+      allowNull: true,
+    },
+    general_reference: {
+      type: DataTypes.STRING, // e.g., "Ajah POP", "Link ID 203", etc.
+      allowNull: true,
+    },
   });
 
   Fault.associate = (models) => {
@@ -33,17 +51,26 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: "customer_id",
       as: "customer",
     });
+
     Fault.belongsTo(models.Department, {
       foreignKey: "assigned_to_id",
       as: "department",
     });
+
     Fault.belongsTo(models.User, {
       as: "resolvedBy",
       foreignKey: "resolved_by",
     });
-    Fault.belongsTo(models.User, { as: "closedBy", foreignKey: "closed_by" });
 
-    Fault.hasMany(models.FaultNote, { foreignKey: "fault_id", as: "notes" });
+    Fault.belongsTo(models.User, {
+      as: "closedBy",
+      foreignKey: "closed_by",
+    });
+
+    Fault.hasMany(models.FaultNote, {
+      foreignKey: "fault_id",
+      as: "notes",
+    });
   };
 
   return Fault;

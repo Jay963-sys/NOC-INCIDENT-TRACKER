@@ -225,7 +225,9 @@ router.post("/", authMiddleware, async (req, res) => {
 
 router.put("/:id", authMiddleware, async (req, res) => {
   try {
-    const fault = await Fault.findByPk(req.params.id);
+    const fault = await Fault.findByPk(req.params.id, {
+      include: { model: Department, as: "department" },
+    });
     if (!fault) return res.status(404).json({ message: "Fault not found" });
 
     const {
@@ -237,6 +239,7 @@ router.put("/:id", authMiddleware, async (req, res) => {
       status,
       pending_hours,
       customer_id,
+      department_id,
       note,
     } = req.body;
 
@@ -252,7 +255,10 @@ router.put("/:id", authMiddleware, async (req, res) => {
     }
 
     let previousStatus = fault.status;
+    let previousDept = fault.Department?.name;
+    let historyLogged = false;
 
+    // Handle status change
     if (status && status !== fault.status) {
       fault.status = status;
 
@@ -281,10 +287,33 @@ router.put("/:id", authMiddleware, async (req, res) => {
         changed_by: req.user.id,
         note: note || null,
       });
+
+      historyLogged = true;
+    }
+
+    // ✅ Handle department transfer
+    if (department_id && department_id !== fault.department_id) {
+      const newDept = await Department.findByPk(department_id);
+      const newDeptName = newDept?.name || "Unknown";
+
+      await FaultHistory.create({
+        fault_id: fault.id,
+        previous_status: `Transferred from ${previousDept || "Unknown"}`,
+        new_status: `Transferred to ${newDeptName}`,
+        changed_by: req.user.id,
+        note: `Transferred to ${newDeptName}`,
+      });
+
+      fault.department_id = department_id;
+      historyLogged = true;
     }
 
     await fault.save();
-    res.json({ message: "Fault updated", fault });
+
+    res.json({
+      message: "Fault updated" + (historyLogged ? " and logged" : ""),
+      fault,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error updating fault" });
@@ -920,6 +949,94 @@ router.get("/department/charts", authMiddleware, async (req, res) => {
   } catch (err) {
     console.error("Error in /department/charts:", err);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+// POST /api/faults/:id/transfer - Transfer a fault to another department
+router.post("/:id/transfer", authMiddleware, async (req, res) => {
+  try {
+    const fault = await Fault.findByPk(req.params.id);
+    if (!fault) {
+      return res.status(404).json({ message: "Fault not found" });
+    }
+
+    const { department_id, note } = req.body;
+
+    // Check if new department exists
+    const newDept = await Department.findByPk(department_id);
+    if (!newDept) {
+      return res.status(400).json({ message: "Invalid department" });
+    }
+
+    const oldDeptId = fault.assigned_to_id;
+    const oldDept = await Department.findByPk(oldDeptId);
+
+    // Transfer
+    fault.assigned_to_id = department_id;
+    await fault.save();
+
+    // Log transfer
+    await FaultHistory.create({
+      fault_id: fault.id,
+      previous_status: `Transferred from ${oldDept?.name || "Unknown"}`,
+      new_status: `Transferred to ${newDept.name}`,
+      changed_by: req.user.id,
+      note: note || `Transferred to ${newDept.name}`,
+    });
+
+    res.json({ message: "Fault transferred successfully", fault });
+  } catch (err) {
+    console.error("Transfer error:", err);
+    res.status(500).json({ message: "Failed to transfer fault" });
+  }
+});
+
+// GET /api/departments - Return all departments except Admin
+router.get("/departments", authMiddleware, async (req, res) => {
+  try {
+    const departments = await Department.findAll({
+      where: {
+        name: { [Op.ne]: "Admin" },
+      },
+      attributes: ["id", "name"],
+    });
+    res.json(departments);
+  } catch (err) {
+    console.error("Error fetching departments:", err);
+    res.status(500).json({ message: "Failed to fetch departments" });
+  }
+});
+
+router.post("/general", authMiddleware, async (req, res) => {
+  try {
+    const {
+      description,
+      general,
+      general_type,
+      location,
+      owner,
+      severity,
+      status,
+      assigned_to_id,
+      type,
+    } = req.body;
+
+    const fault = await Fault.create({
+      description,
+      general,
+      general_type,
+      location,
+      owner,
+      severity,
+      status: status || "Open",
+      assigned_to_id,
+      type,
+    });
+
+    res.status(201).json(fault);
+  } catch (err) {
+    console.error("Error creating general fault:", err);
+    res.status(500).json({ error: "Failed to create general fault" });
   }
 });
 

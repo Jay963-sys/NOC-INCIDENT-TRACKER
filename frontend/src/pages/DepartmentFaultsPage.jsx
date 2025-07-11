@@ -138,10 +138,20 @@ export default function DepartmentFaultsPage() {
       </table>
 
       {selectedFault && (
-        <FaultDetailsDrawer
-          fault={selectedFault}
-          onClose={() => setSelectedFault(null)}
-        />
+        <div
+          className="drawer-overlay"
+          onClick={(e) => {
+            if (e.target.classList.contains("drawer-overlay")) {
+              setSelectedFault(null);
+            }
+          }}
+        >
+          <FaultDetailsDrawer
+            fault={selectedFault}
+            onClose={() => setSelectedFault(null)}
+            refreshTable={fetchFaults}
+          />
+        </div>
       )}
     </div>
   );

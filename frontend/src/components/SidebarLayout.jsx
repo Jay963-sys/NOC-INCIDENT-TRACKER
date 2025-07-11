@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+
 export default function SidebarLayout({ children }) {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
@@ -56,7 +57,6 @@ export default function SidebarLayout({ children }) {
         </div>
 
         <nav style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-          {/* Dashboard Link */}
           <SidebarLink
             to={isAdmin ? "/dashboard" : "/department/dashboard"}
             icon="📊"
@@ -69,7 +69,6 @@ export default function SidebarLayout({ children }) {
             }
           />
 
-          {/* Faults Page Link */}
           <SidebarLink
             to={isAdmin ? "/dashboard/faults" : "/department/faults"}
             icon="🛠️"
@@ -82,7 +81,6 @@ export default function SidebarLayout({ children }) {
             }
           />
 
-          {/* Admin-only Links */}
           {isAdmin && (
             <>
               <SidebarLink
@@ -130,21 +128,45 @@ export default function SidebarLayout({ children }) {
           >
             {isAdmin ? "NOC Fault Logger Admin" : "Department Dashboard"}
           </div>
-          <button
-            onClick={handleLogout}
-            style={{
-              backgroundColor: "#2563eb",
-              color: "white",
-              border: "none",
-              padding: "6px 14px",
-              borderRadius: "6px",
-              fontSize: "14px",
-              cursor: "pointer",
-              boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-            }}
-          >
-            Logout
-          </button>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            {!isAdmin && (
+              <span style={{ fontSize: "14px", color: "#334155" }}>
+                {user?.department?.name || "Department"}
+              </span>
+            )}
+            <div
+              style={{
+                width: "32px",
+                height: "32px",
+                borderRadius: "50%",
+                backgroundColor: "#2563eb",
+                color: "white",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: "600",
+              }}
+              title={user?.username || "User"}
+            >
+              {user?.username?.charAt(0).toUpperCase() || "U"}
+            </div>
+            <button
+              onClick={handleLogout}
+              style={{
+                backgroundColor: "#2563eb",
+                color: "white",
+                border: "none",
+                padding: "6px 14px",
+                borderRadius: "6px",
+                fontSize: "14px",
+                cursor: "pointer",
+                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+              }}
+            >
+              Logout
+            </button>
+          </div>
         </div>
 
         {/* Content */}

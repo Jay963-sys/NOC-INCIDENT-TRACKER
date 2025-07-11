@@ -11,6 +11,7 @@ export default function NewFaultForm({ onSuccess }) {
   const [customers, setCustomers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [error, setError] = useState("");
+  const [isGeneral, setIsGeneral] = useState(false);
 
   useEffect(() => {
     fetchCustomers();
@@ -39,36 +40,43 @@ export default function NewFaultForm({ onSuccess }) {
     e.preventDefault();
     setError("");
 
-    if (
-      !description ||
-      !type ||
-      !location ||
-      !owner ||
-      !customerId ||
-      !assignedToId
-    ) {
-      setError("All fields are required.");
+    if (!description || !type || !location || !owner || !assignedToId) {
+      setError("All required fields must be filled.");
+      return;
+    }
+
+    if (!isGeneral && !customerId) {
+      setError("Please select a customer for customer faults.");
       return;
     }
 
     try {
-      await api.post("/faults", {
+      const payload = {
         description,
         type,
         location,
         owner,
         status: "Open",
-        customer_id: customerId,
         assigned_to_id: assignedToId,
-        pending_hours: 0, // Send pending_hours explicitly so severity gets calculated
-      });
+        pending_hours: 0,
+      };
 
+      if (isGeneral) {
+        payload.general_type = true;
+        await api.post("/faults/general", payload);
+      } else {
+        payload.customer_id = customerId;
+        await api.post("/faults", payload);
+      }
+
+      // Reset
       setDescription("");
       setType("");
       setLocation("");
       setOwner("");
       setAssignedToId("");
       setCustomerId("");
+      setIsGeneral(false);
       onSuccess();
     } catch (err) {
       console.error(err);
@@ -79,6 +87,15 @@ export default function NewFaultForm({ onSuccess }) {
   return (
     <form onSubmit={handleSubmit}>
       {error && <p style={{ color: "red" }}>{error}</p>}
+
+      <select
+        value={isGeneral ? "general" : "customer"}
+        onChange={(e) => setIsGeneral(e.target.value === "general")}
+        style={inputStyle}
+      >
+        <option value="customer">Customer Fault</option>
+        <option value="general">General Fault</option>
+      </select>
 
       <input
         type="text"
@@ -125,18 +142,20 @@ export default function NewFaultForm({ onSuccess }) {
         ))}
       </select>
 
-      <select
-        value={customerId}
-        onChange={(e) => setCustomerId(e.target.value)}
-        style={inputStyle}
-      >
-        <option value="">Select Customer *</option>
-        {customers.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.company} - {c.circuit_id}
-          </option>
-        ))}
-      </select>
+      {!isGeneral && (
+        <select
+          value={customerId}
+          onChange={(e) => setCustomerId(e.target.value)}
+          style={inputStyle}
+        >
+          <option value="">Select Customer *</option>
+          {customers.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.company} - {c.circuit_id}
+            </option>
+          ))}
+        </select>
+      )}
 
       <button type="submit" style={buttonStyle}>
         Log Fault

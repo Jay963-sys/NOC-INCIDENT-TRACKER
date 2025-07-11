@@ -29,7 +29,14 @@ export default function FaultList({ faults, onRowClick, onRefresh }) {
     }
   };
 
-  if (faults.length === 0) return <p>No faults found.</p>;
+  const getPendingColor = (hours) => {
+    if (hours >= 48) return "#dc3545"; // red
+    if (hours >= 24) return "#fd7e14"; // orange
+    return "#6c757d"; // gray
+  };
+
+  if (!Array.isArray(faults) || faults.length === 0)
+    return <p>No faults found.</p>;
 
   return (
     <table style={tableStyle}>
@@ -58,6 +65,7 @@ export default function FaultList({ faults, onRowClick, onRefresh }) {
 
       <tbody>
         {faults.map((fault, idx) => {
+          const isGeneral = !fault.customer;
           const createdAt = new Date(fault.createdAt);
           const resolvedAt = fault.resolvedAt
             ? new Date(fault.resolvedAt)
@@ -72,10 +80,14 @@ export default function FaultList({ faults, onRowClick, onRefresh }) {
           } else {
             const diffMs = currentTime - createdAt.getTime();
             const diffHours = diffMs / (1000 * 60 * 60);
-            pendingDisplay =
-              diffHours >= 24
-                ? `${(diffHours / 24).toFixed(1)} days`
-                : `${diffHours.toFixed(1)} hrs`;
+            const pendingColor = getPendingColor(diffHours);
+            pendingDisplay = (
+              <span style={badgeStyle(pendingColor)}>
+                {diffHours >= 24
+                  ? `${(diffHours / 24).toFixed(1)} days`
+                  : `${diffHours.toFixed(1)} hrs`}
+              </span>
+            );
           }
 
           return (
@@ -97,10 +109,20 @@ export default function FaultList({ faults, onRowClick, onRefresh }) {
                 {fault.ticket_number || fault.id}
               </td>
               <td style={clickableCellStyle} onClick={() => onRowClick(fault)}>
-                {fault.customer?.company || "N/A"}
+                {isGeneral ? (
+                  <span style={{ fontStyle: "italic", color: "#666" }}>
+                    General Fault
+                  </span>
+                ) : (
+                  fault.customer.company
+                )}
               </td>
               <td style={clickableCellStyle} onClick={() => onRowClick(fault)}>
-                {fault.customer?.circuit_id || "N/A"}
+                {isGeneral ? (
+                  <span style={{ fontStyle: "italic", color: "#666" }}>—</span>
+                ) : (
+                  fault.customer.circuit_id
+                )}
               </td>
               <td style={clickableCellStyle} onClick={() => onRowClick(fault)}>
                 {fault.type || "N/A"}
@@ -176,7 +198,6 @@ export default function FaultList({ faults, onRowClick, onRefresh }) {
                   {resolvedAt ? resolvedAt.toLocaleString() : "—"}
                 </td>
               )}
-
               {faults.some((f) => f.status === "Closed") && (
                 <td style={timestampCellStyle}>
                   {closedAt ? closedAt.toLocaleString() : "—"}
@@ -189,8 +210,6 @@ export default function FaultList({ faults, onRowClick, onRefresh }) {
     </table>
   );
 }
-
-// === Styles ===
 
 const tableStyle = {
   width: "100%",
@@ -241,7 +260,7 @@ const badgeStyle = (color) => ({
 
 const timestampCellStyle = {
   ...tdStyle,
-  color: "#666", // softer gray for subtle look
-  fontSize: "12.5px", // slightly smaller than normal text
-  fontWeight: "400", // regular weight
+  color: "#666",
+  fontSize: "12.5px",
+  fontWeight: "400",
 };

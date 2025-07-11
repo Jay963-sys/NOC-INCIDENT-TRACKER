@@ -46,6 +46,7 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  font-weight: 500;
 }
 
 .primary-btn,
@@ -86,7 +87,7 @@
 }
 
 .data-table th {
-  background-color: #dff5e3; /* Light mint green */
+  background-color: #dff5e3;
 }
 
 .modal-overlay {
@@ -103,7 +104,7 @@
 }
 
 .modal-content {
-  background: #f9fdfb; /* Light pale green */
+  background: #f9fdfb;
   padding: 20px;
   border-radius: 8px;
   min-width: 400px;
@@ -128,7 +129,7 @@
 }
 
 .topbar-left {
-  font-weight: bold;
+  font-weight: 500;
   font-size: 18px;
 }
 

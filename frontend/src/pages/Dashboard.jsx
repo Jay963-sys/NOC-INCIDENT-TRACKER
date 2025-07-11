@@ -285,10 +285,22 @@ export default function Dashboard() {
       )}
 
       {/* Fault Details Drawer */}
-      <FaultDetailsDrawer
-        fault={selectedFault}
-        onClose={() => setSelectedFault(null)}
-      />
+      {selectedFault && (
+        <div
+          className="drawer-overlay"
+          onClick={(e) => {
+            if (e.target.classList.contains("drawer-overlay")) {
+              setSelectedFault(null); // close drawer on outside click
+            }
+          }}
+        >
+          <FaultDetailsDrawer
+            fault={selectedFault}
+            onClose={() => setSelectedFault(null)}
+            refreshTable={fetchFaults} // pass refresh function
+          />
+        </div>
+      )}
 
       {/* New Fault Modal */}
       {showNewFaultModal && (
