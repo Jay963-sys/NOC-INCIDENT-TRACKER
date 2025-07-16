@@ -3,13 +3,17 @@ const router = express.Router();
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { User } = require("../models");
+const { Department } = require("../models");
 
 // Login Route
 router.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    const user = await User.findOne({ where: { username } });
+    const user = await User.findOne({
+      where: { username },
+      include: [{ model: Department, as: "department" }],
+    });
 
     if (!user) {
       return res.status(400).json({ message: "Invalid username or password" });
@@ -26,6 +30,7 @@ router.post("/login", async (req, res) => {
       username: user.username,
       role: user.role,
       department_id: user.department_id,
+      department: user.department,
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
@@ -53,6 +58,10 @@ router.post("/register", async (req, res) => {
       return res.status(400).json({ message: "Username already exists." });
     }
 
+    // 👇 Hash the password properly
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
     const user = await User.create({
       username,
       email,
@@ -60,8 +69,6 @@ router.post("/register", async (req, res) => {
       role,
       department_id: department_id || null,
     });
-
-    console.log("🧪 Created user with password:", user.password);
 
     return res.json({ message: "User registered successfully.", user });
   } catch (err) {

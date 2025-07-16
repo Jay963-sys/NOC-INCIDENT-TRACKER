@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import api from "../services/api";
 import { toast } from "react-toastify";
+import { formatPendingTime } from "./formatPendingTime";
 
 export default function FaultDetailsDrawer({ fault, onClose, refreshTable }) {
+  const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState("Details");
   const [details, setDetails] = useState(null);
   const [history, setHistory] = useState([]);
@@ -12,6 +14,12 @@ export default function FaultDetailsDrawer({ fault, onClose, refreshTable }) {
   const [departmentList, setDepartmentList] = useState([]);
   const [selectedDept, setSelectedDept] = useState("");
   const drawerRef = useRef(null);
+  const [editFault, setEditFault] = useState({ ...fault });
+
+  useEffect(() => {
+    const storedUser = JSON.parse(localStorage.getItem("user"));
+    setUser(storedUser);
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -85,6 +93,29 @@ export default function FaultDetailsDrawer({ fault, onClose, refreshTable }) {
   if (!fault || !details) return null;
 
   const isGeneral = !details.customer;
+  const pendingInfo = formatPendingTime(details.pending_hours, details.status);
+
+  const handleEdit = async () => {
+    try {
+      await api.put(`/faults/${fault.id}`, editFault);
+      refreshTable();
+      onClose();
+    } catch (err) {
+      console.error("Edit failed", err);
+      alert("Failed to update fault.");
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await api.delete(`/faults/${fault.id}`);
+      refreshTable();
+      onClose();
+    } catch (err) {
+      console.error("Delete failed", err);
+      alert("Failed to delete fault.");
+    }
+  };
 
   return (
     <div style={overlayStyle}>
@@ -101,7 +132,7 @@ export default function FaultDetailsDrawer({ fault, onClose, refreshTable }) {
 
         {/* Tabs */}
         <div style={tabBarStyle}>
-          {["Details", "Notes", "History"].map((tab) => (
+          {"Details Notes History".split(" ").map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -134,32 +165,26 @@ export default function FaultDetailsDrawer({ fault, onClose, refreshTable }) {
                     <strong>Company:</strong>
                   </div>
                   <div>{details.customer?.company}</div>
-
                   <div>
                     <strong>Circuit ID:</strong>
                   </div>
                   <div>{details.customer?.circuit_id}</div>
-
                   <div>
                     <strong>Location:</strong>
                   </div>
                   <div>{details.customer?.location}</div>
-
                   <div>
                     <strong>IP Address:</strong>
                   </div>
                   <div>{details.customer?.ip_address}</div>
-
                   <div>
                     <strong>POP Site:</strong>
                   </div>
                   <div>{details.customer?.pop_site}</div>
-
                   <div>
                     <strong>Switch Info:</strong>
                   </div>
                   <div>{details.customer?.switch_info}</div>
-
                   <div>
                     <strong>Email:</strong>
                   </div>
@@ -219,22 +244,77 @@ export default function FaultDetailsDrawer({ fault, onClose, refreshTable }) {
               <div>
                 <strong>Description:</strong>
               </div>
-              <div>{details.description}</div>
+              <div>
+                {user?.role === "admin" ? (
+                  <input
+                    type="text"
+                    value={editFault.description}
+                    onChange={(e) =>
+                      setEditFault({
+                        ...editFault,
+                        description: e.target.value,
+                      })
+                    }
+                    style={{ width: "100%", padding: "4px" }}
+                  />
+                ) : (
+                  details.description
+                )}
+              </div>
 
               <div>
                 <strong>Location:</strong>
               </div>
-              <div>{details.location}</div>
+              <div>
+                {user?.role === "admin" ? (
+                  <input
+                    type="text"
+                    value={editFault.location}
+                    onChange={(e) =>
+                      setEditFault({ ...editFault, location: e.target.value })
+                    }
+                    style={{ width: "100%", padding: "4px" }}
+                  />
+                ) : (
+                  details.location
+                )}
+              </div>
 
               <div>
                 <strong>Owner:</strong>
               </div>
-              <div>{details.owner}</div>
+              <div>
+                {user?.role === "admin" ? (
+                  <input
+                    type="text"
+                    value={editFault.owner}
+                    onChange={(e) =>
+                      setEditFault({ ...editFault, owner: e.target.value })
+                    }
+                    style={{ width: "100%", padding: "4px" }}
+                  />
+                ) : (
+                  details.owner
+                )}
+              </div>
 
               <div>
                 <strong>Type:</strong>
               </div>
-              <div>{details.type}</div>
+              <div>
+                {user?.role === "admin" ? (
+                  <input
+                    type="text"
+                    value={editFault.type}
+                    onChange={(e) =>
+                      setEditFault({ ...editFault, type: e.target.value })
+                    }
+                    style={{ width: "100%", padding: "4px" }}
+                  />
+                ) : (
+                  details.type
+                )}
+              </div>
 
               <div>
                 <strong>Status:</strong>
@@ -243,7 +323,21 @@ export default function FaultDetailsDrawer({ fault, onClose, refreshTable }) {
                 <select
                   value={details.status}
                   onChange={handleStatusChange}
-                  style={{ padding: "4px", borderRadius: "4px" }}
+                  disabled={
+                    user?.role !== "admin" && details.status === "Closed"
+                  }
+                  style={{
+                    padding: "4px",
+                    borderRadius: "4px",
+                    backgroundColor:
+                      user?.role !== "admin" && details.status === "Closed"
+                        ? "#e9ecef"
+                        : "white",
+                    cursor:
+                      user?.role !== "admin" && details.status === "Closed"
+                        ? "not-allowed"
+                        : "pointer",
+                  }}
                 >
                   <option>Open</option>
                   <option>In Progress</option>
@@ -265,9 +359,18 @@ export default function FaultDetailsDrawer({ fault, onClose, refreshTable }) {
                 <strong>Pending:</strong>
               </div>
               <div>
-                {typeof details.pending_hours === "number"
-                  ? `${details.pending_hours.toFixed(1)} hrs`
-                  : details.pending_hours}
+                <span
+                  style={{
+                    backgroundColor: pendingInfo.color,
+                    color: "white",
+                    padding: "4px 10px",
+                    borderRadius: "20px",
+                    fontSize: "12px",
+                    fontWeight: "500",
+                  }}
+                >
+                  {pendingInfo.text}
+                </span>
               </div>
 
               <div>
@@ -306,6 +409,39 @@ export default function FaultDetailsDrawer({ fault, onClose, refreshTable }) {
                   </div>
                 </>
               )}
+            </div>
+          )}
+
+          {user?.role === "admin" && (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "10px",
+                marginTop: "20px",
+              }}
+            >
+              <button onClick={handleEdit} style={{ padding: "6px 12px" }}>
+                Save Changes
+              </button>
+              <button
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      "Are you sure you want to delete this fault?"
+                    )
+                  ) {
+                    handleDelete();
+                  }
+                }}
+                style={{
+                  padding: "6px 12px",
+                  backgroundColor: "red",
+                  color: "white",
+                }}
+              >
+                Delete
+              </button>
             </div>
           )}
 

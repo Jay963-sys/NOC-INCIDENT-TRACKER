@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import api from "../services/api";
+import { formatPendingTime } from "../components/formatPendingTime";
 import FaultDetailsDrawer from "../components/FaultDetailsDrawer";
 import {
   BarChart,
@@ -8,6 +9,8 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
+  Cell,
+  CartesianGrid,
 } from "recharts";
 import { toast } from "react-toastify";
 
@@ -16,15 +19,22 @@ export default function DepartmentDashboard() {
   const [chartsData, setChartsData] = useState(null);
   const [faults, setFaults] = useState([]);
   const [selectedFault, setSelectedFault] = useState(null);
-
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [severityFilter, setSeverityFilter] = useState("all");
+  const [loading, setLoading] = useState(false);
 
   const fetchFaults = useCallback(async () => {
-    const params = { search, status: statusFilter, severity: severityFilter };
-    const res = await api.get("/faults/department/dashboard", { params });
-    setFaults(res.data);
+    setLoading(true);
+    try {
+      const params = { search, status: statusFilter, severity: severityFilter };
+      const res = await api.get("/faults/department/dashboard", { params });
+      setFaults(res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   }, [search, statusFilter, severityFilter]);
 
   const fetchMetrics = async () => {
@@ -47,7 +57,12 @@ export default function DepartmentDashboard() {
       };
     });
 
-    setMetrics({ statusCounts, severityCounts });
+    const total = Object.values(statusCounts).reduce(
+      (sum, val) => sum + val,
+      0
+    );
+
+    setMetrics({ total, statusCounts, severityCounts });
     setChartsData({ ...res.data, severity: normalizedSeverityData });
   };
 
@@ -55,6 +70,24 @@ export default function DepartmentDashboard() {
     fetchMetrics();
     fetchFaults();
   }, [fetchFaults]);
+
+  const statusDropdownStyle = (status) => ({
+    padding: "4px 8px",
+    backgroundColor:
+      status === "Open"
+        ? "orange"
+        : status === "In Progress"
+        ? "#007bff"
+        : status === "Resolved"
+        ? "green"
+        : status === "Closed"
+        ? "gray"
+        : "#ccc",
+    color: "white",
+    border: "none",
+    borderRadius: "4px",
+    fontSize: "12px",
+  });
 
   const handleStatusChange = async (e, fault) => {
     e.stopPropagation();
@@ -67,12 +100,9 @@ export default function DepartmentDashboard() {
       });
 
       toast.success(`Fault marked as ${newStatus}`);
-
-      // Refresh list
       fetchFaults();
       fetchMetrics();
 
-      // If drawer is open, update it too
       if (selectedFault?.id === fault.id) {
         setSelectedFault(res.data.fault);
       }
@@ -86,52 +116,110 @@ export default function DepartmentDashboard() {
     <div style={{ padding: "20px" }}>
       <h2 style={{ marginBottom: "20px" }}>Department Dashboard</h2>
 
-      {/* 🔹 Status Metrics */}
       {metrics && (
-        <div style={{ display: "flex", gap: "20px", marginBottom: "30px" }}>
-          {["Open", "In Progress", "Resolved", "Closed"].map((status) => (
-            <MetricCard
-              key={status}
-              label={status}
-              value={metrics.statusCounts[status] || 0}
-            />
-          ))}
+        <div>
+          <h3 style={{ marginBottom: "16px" }}>📊 Dashboard Metrics</h3>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: "20px",
+              marginBottom: "30px",
+            }}
+          >
+            <div style={cardStyle}>
+              <h4>Total Faults</h4>
+              <p style={{ fontSize: "30px", fontWeight: "700", color: "#333" }}>
+                {metrics.total}
+              </p>
+            </div>
+
+            <div style={cardStyle}>
+              <h4>Status Counts</h4>
+              {Object.entries(metrics.statusCounts).map(([status, count]) => (
+                <p
+                  key={status}
+                  style={{ display: "flex", justifyContent: "space-between" }}
+                >
+                  <span>{status}</span>
+                  <span style={badge("#007bff")}>{count}</span>
+                </p>
+              ))}
+            </div>
+
+            <div style={cardStyle}>
+              <h4>Severity Counts</h4>
+              {Object.entries(metrics.severityCounts).map(
+                ([severity, count]) => (
+                  <p
+                    key={severity}
+                    style={{ display: "flex", justifyContent: "space-between" }}
+                  >
+                    <span>{severity}</span>
+                    <span
+                      style={badge(
+                        severity === "Critical"
+                          ? "#dc3545"
+                          : severity === "High"
+                          ? "#fd7e14"
+                          : severity === "Medium"
+                          ? "#ffc107"
+                          : "#28a745"
+                      )}
+                    >
+                      {count}
+                    </span>
+                  </p>
+                )
+              )}
+            </div>
+          </div>
         </div>
       )}
 
-      {/* 🔹 Severity Metrics */}
-      {metrics && (
-        <div style={{ display: "flex", gap: "20px", marginBottom: "30px" }}>
-          {["Low", "Medium", "High", "Critical"].map((severity) => (
-            <MetricCard
-              key={severity}
-              label={`Severity: ${severity}`}
-              value={metrics.severityCounts[severity] || 0}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* 🔹 Severity Chart */}
       {chartsData?.severity?.length > 0 && (
-        <div style={{ flex: 1, marginBottom: "40px" }}>
-          <h4>Faults by Severity</h4>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={chartsData.severity}>
-              <XAxis dataKey="severity" />
-              <YAxis allowDecimals={false} />
-              <Tooltip />
-              <Bar dataKey="count" fill="#2563eb" />
-            </BarChart>
-          </ResponsiveContainer>
+        <div style={{ flex: 1, minWidth: "300px" }}>
+          <div style={cardStyle}>
+            <h4 style={{ marginBottom: "10px" }}>📉 Faults by Severity</h4>
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={chartsData.severity}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="severity" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="count">
+                  {chartsData.severity.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={
+                        entry.severity === "Low"
+                          ? "#28a745"
+                          : entry.severity === "Medium"
+                          ? "#ffc107"
+                          : entry.severity === "High"
+                          ? "#fd7e14"
+                          : "#dc3545"
+                      }
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       )}
 
-      {/* 🔹 Filters */}
-      <div style={{ display: "flex", gap: "10px", marginBottom: "16px" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: "12px",
+          marginBottom: "20px",
+          flexWrap: "wrap",
+        }}
+      >
         <input
           type="text"
-          placeholder="Search by Ticket #, Company, Description..."
+          placeholder="🔍 Search by Ticket #, Company, Description..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           style={inputStyle}
@@ -160,72 +248,159 @@ export default function DepartmentDashboard() {
         </select>
       </div>
 
-      {/* 🔹 Faults Table */}
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr style={{ background: "#f0f0f0" }}>
-            <th style={thStyle}>Ticket #</th>
-            <th style={thStyle}>Company</th>
-            <th style={thStyle}>Circuit ID</th>
-            <th style={thStyle}>Type</th>
-            <th style={thStyle}>Description</th>
-            <th style={thStyle}>Location</th>
-            <th style={thStyle}>Status</th>
-            <th style={thStyle}>Severity</th>
-            <th style={thStyle}>Pending</th>
-            <th style={thStyle}>Logged Time</th>
-            <th style={thStyle}>Resolved At</th>
-            <th style={thStyle}>Closed At</th>
-          </tr>
-        </thead>
-        <tbody>
-          {faults.map((fault) => (
-            <tr
-              key={fault.id}
-              onClick={() => setSelectedFault(fault)}
-              style={{ cursor: "pointer", borderBottom: "1px solid #ccc" }}
-            >
-              <td style={tdStyle}>{fault.ticket_number || fault.id}</td>
-              <td style={tdStyle}>{fault.customer?.company || "-"}</td>
-              <td style={tdStyle}>{fault.customer?.circuit_id || "-"}</td>
-              <td style={tdStyle}>{fault.type || "-"}</td>
-              <td style={tdStyle}>{fault.description}</td>
-              <td style={tdStyle}>{fault.location || "-"}</td>
-              <td style={tdStyle} onClick={(e) => e.stopPropagation()}>
-                <select
-                  value={fault.status}
-                  onChange={(e) => handleStatusChange(e, fault)}
-                >
-                  <option>Open</option>
-                  <option>In Progress</option>
-                  <option>Resolved</option>
-                  <option>Closed</option>
-                </select>
-              </td>
-              <td style={tdStyle}>
-                <span style={severityBadge(String(fault.severity))}>
-                  {fault.severity || "-"}
-                </span>
-              </td>
-              <td style={tdStyle}>
-                {typeof fault.pending_hours === "number"
-                  ? `${fault.pending_hours.toFixed(1)}h`
-                  : "-"}
-              </td>
-              <td style={tdStyle}>{formatDateTime(fault.createdAt)}</td>
-              <td style={tdStyle}>{formatDateTime(fault.resolvedAt)}</td>
-              <td style={tdStyle}>{formatDateTime(fault.closedAt)}</td>
+      {loading ? (
+        <p>Loading faults...</p>
+      ) : (
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ background: "#f0f0f0" }}>
+              <th style={thStyle}>Ticket #</th>
+              <th style={thStyle}>Company</th>
+              <th style={thStyle}>Circuit ID</th>
+              <th style={thStyle}>Type</th>
+              <th style={thStyle}>Description</th>
+              <th style={thStyle}>Location</th>
+              <th style={thStyle}>Status</th>
+              <th style={thStyle}>Severity</th>
+              <th style={thStyle}>Pending</th>
+              <th style={thStyle}>Logged Time</th>
+              {faults.some((f) => f.status === "Resolved") && (
+                <th style={thStyle}>Resolved At</th>
+              )}
+              {faults.some((f) => f.status === "Closed") && (
+                <th style={thStyle}>Closed At</th>
+              )}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {faults.map((fault, idx) => (
+              <tr
+                key={fault.id}
+                onClick={() => setSelectedFault(fault)}
+                style={{
+                  cursor: "pointer",
+                  borderBottom: "1px solid #ddd",
+                  backgroundColor: idx % 2 === 0 ? "#fff" : "#f9f9f9",
+                  transition: "background-color 0.2s, box-shadow 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "#eef5ff";
+                  e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor =
+                    idx % 2 === 0 ? "#fff" : "#f9f9f9";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
+              >
+                <td style={tdStyle}>{fault.ticket_number || fault.id}</td>
+                <td style={tdStyle}>
+                  {fault.customer?.company || (
+                    <i style={{ color: "#666" }}>General</i>
+                  )}
+                </td>
+                <td style={tdStyle}>{fault.customer?.circuit_id || "-"}</td>
+                <td style={tdStyle}>{fault.type || "-"}</td>
+                <td style={tdStyle}>{fault.description}</td>
+                <td style={tdStyle}>{fault.location || "-"}</td>
+                <td style={tdStyle} onClick={(e) => e.stopPropagation()}>
+                  <select
+                    value={fault.status}
+                    onChange={(e) => handleStatusChange(e, fault)}
+                    disabled={fault.status === "Closed"}
+                    style={statusDropdownStyle(fault.status)}
+                  >
+                    <option>Open</option>
+                    <option>In Progress</option>
+                    <option>Resolved</option>
+                    <option>Closed</option>
+                  </select>
+                </td>
+
+                <td style={tdStyle}>
+                  <span style={severityBadge(String(fault.severity))}>
+                    {fault.severity || "-"}
+                  </span>
+                </td>
+                <td style={tdStyle}>
+                  {(() => {
+                    if (fault.status === "Resolved") {
+                      return (
+                        <span
+                          style={{
+                            backgroundColor: "green",
+                            color: "#fff",
+                            padding: "4px 10px",
+                            borderRadius: "20px",
+                            fontSize: "12px",
+                            fontWeight: "500",
+                            display: "inline-block",
+                          }}
+                        >
+                          Resolved
+                        </span>
+                      );
+                    } else if (fault.status === "Closed") {
+                      return (
+                        <span
+                          style={{
+                            backgroundColor: "gray",
+                            color: "#fff",
+                            padding: "4px 10px",
+                            borderRadius: "20px",
+                            fontSize: "12px",
+                            fontWeight: "500",
+                            display: "inline-block",
+                          }}
+                        >
+                          Closed
+                        </span>
+                      );
+                    } else if (typeof fault.pending_hours === "number") {
+                      const { text, color } = formatPendingTime(
+                        fault.pending_hours,
+                        fault.status
+                      );
+                      return (
+                        <span
+                          style={{
+                            backgroundColor: color,
+                            color: "#fff",
+                            padding: "4px 10px",
+                            borderRadius: "20px",
+                            fontSize: "12px",
+                            fontWeight: "500",
+                            display: "inline-block",
+                          }}
+                        >
+                          {text}
+                        </span>
+                      );
+                    } else {
+                      return "-";
+                    }
+                  })()}
+                </td>
+
+                <td style={tdStyle}>{formatDateTime(fault.createdAt)}</td>
+                {faults.some((f) => f.status === "Resolved") && (
+                  <td style={tdStyle}>{formatDateTime(fault.resolvedAt)}</td>
+                )}
+                {faults.some((f) => f.status === "Closed") && (
+                  <td style={tdStyle}>{formatDateTime(fault.closedAt)}</td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
 
       {selectedFault && (
         <div
           className="drawer-overlay"
           onClick={(e) => {
             if (e.target.classList.contains("drawer-overlay")) {
-              setSelectedFault(null); // close drawer if clicked outside
+              setSelectedFault(null);
             }
           }}
         >
@@ -239,29 +414,6 @@ export default function DepartmentDashboard() {
     </div>
   );
 }
-
-// 🔹 Helpers and styles
-
-const MetricCard = ({ label, value }) => (
-  <div
-    style={{
-      flex: 1,
-      background: "#f0f4ff",
-      padding: "16px",
-      borderRadius: "8px",
-      textAlign: "center",
-      boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
-    }}
-  >
-    <div style={{ fontSize: "14px", color: "#555" }}>{label}</div>
-    <div style={{ fontSize: "24px", fontWeight: "600", marginTop: "5px" }}>
-      {value}
-    </div>
-  </div>
-);
-
-const thStyle = { padding: "10px", textAlign: "left" };
-const tdStyle = { padding: "10px" };
 
 const inputStyle = {
   padding: "8px",
@@ -289,3 +441,37 @@ const severityBadge = (severity) => {
 
 const formatDateTime = (value) =>
   value ? new Date(value).toLocaleString() : "-";
+
+const cardStyle = {
+  padding: "15px 20px",
+  borderRadius: "10px",
+  background: "white",
+  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+  flex: 1,
+  minWidth: "220px",
+};
+
+const badge = (backgroundColor) => ({
+  display: "inline-block",
+  padding: "2px 8px",
+  borderRadius: "12px",
+  backgroundColor,
+  color: "white",
+  fontSize: "12px",
+  marginLeft: "8px",
+});
+
+const thStyle = {
+  padding: "12px 10px",
+  textAlign: "left",
+  backgroundColor: "#f0f4f8",
+  fontSize: "14px",
+  fontWeight: "600",
+  color: "#333",
+};
+
+const tdStyle = {
+  padding: "10px",
+  fontSize: "14px",
+  color: "#333",
+};

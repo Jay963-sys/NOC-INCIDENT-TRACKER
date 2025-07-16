@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import api from "../services/api";
 import FaultDetailsDrawer from "../components/FaultDetailsDrawer";
+import { formatPendingTime } from "../components/formatPendingTime";
+import CustomRangeModal from "../components/CustomRangeModal";
 
 export default function DepartmentFaultsPage() {
   const [faults, setFaults] = useState([]);
@@ -9,22 +11,49 @@ export default function DepartmentFaultsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [severityFilter, setSeverityFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [timeFilter, setTimeFilter] = useState("all");
+  const [customStartDate, setCustomStartDate] = useState(null);
+  const [customEndDate, setCustomEndDate] = useState(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
-  useEffect(() => {
-    fetchFaults();
-    // eslint-disable-next-line
-  }, [search, statusFilter, severityFilter]);
-
-  const fetchFaults = async () => {
+  const fetchFaults = useCallback(async () => {
+    setLoading(true);
     const params = {
       search,
       status: statusFilter !== "all" ? statusFilter : undefined,
       severity: severityFilter !== "all" ? severityFilter : undefined,
+      timeRange: timeFilter !== "all" ? timeFilter : undefined,
+      customStart:
+        timeFilter === "custom" && customStartDate
+          ? customStartDate.toISOString()
+          : undefined,
+      customEnd:
+        timeFilter === "custom" && customEndDate
+          ? customEndDate.toISOString()
+          : undefined,
     };
 
-    const res = await api.get("/faults/department/dashboard", { params });
-    setFaults(res.data);
-  };
+    try {
+      const res = await api.get("/faults/department/dashboard", { params });
+      setFaults(res.data);
+    } catch (err) {
+      console.error("Error fetching faults", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    search,
+    statusFilter,
+    severityFilter,
+    timeFilter,
+    customStartDate,
+    customEndDate,
+  ]);
+
+  useEffect(() => {
+    fetchFaults();
+  }, [fetchFaults]);
 
   const handleStatusChange = async (e, faultId) => {
     e.stopPropagation();
@@ -39,6 +68,9 @@ export default function DepartmentFaultsPage() {
       console.error("Failed to update status", err);
     }
   };
+
+  const shouldShowResolved = faults.some((f) => f.status === "Resolved");
+  const shouldShowClosed = faults.some((f) => f.status === "Closed");
 
   return (
     <div style={{ padding: "20px" }}>
@@ -75,67 +107,185 @@ export default function DepartmentFaultsPage() {
           <option>High</option>
           <option>Critical</option>
         </select>
+
+        <select
+          value={timeFilter}
+          onChange={(e) => {
+            const value = e.target.value;
+            setTimeFilter(value);
+            if (value === "custom") {
+              setShowDatePicker(true);
+            } else {
+              setCustomStartDate(null);
+              setCustomEndDate(null);
+              fetchFaults();
+            }
+          }}
+          style={inputStyle}
+        >
+          <option value="all">All Time</option>
+          <option value="day">Past Day</option>
+          <option value="week">Past Week</option>
+          <option value="month">Past Month</option>
+          <option value="year">Past Year</option>
+          <option value="custom">Custom Range</option>
+        </select>
       </div>
+      <CustomRangeModal
+        show={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+        startDate={customStartDate}
+        endDate={customEndDate}
+        setStartDate={setCustomStartDate}
+        setEndDate={setCustomEndDate}
+        onApply={() => {
+          if (customStartDate && customEndDate) {
+            fetchFaults();
+            setShowDatePicker(false);
+          }
+        }}
+      />
 
       {/* Faults Table */}
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr style={{ background: "#f0f0f0" }}>
-            <th style={thStyle}>Ticket #</th>
-            <th style={thStyle}>Company</th>
-            <th style={thStyle}>Circuit ID</th>
-            <th style={thStyle}>Type</th>
-            <th style={thStyle}>Description</th>
-            <th style={thStyle}>Location</th>
-            <th style={thStyle}>Status</th>
-            <th style={thStyle}>Severity</th>
-            <th style={thStyle}>Pending</th>
-            <th style={thStyle}>Logged Time</th>
-            <th style={thStyle}>Resolved At</th>
-            <th style={thStyle}>Closed At</th>
-          </tr>
-        </thead>
-        <tbody>
-          {faults.map((fault) => (
-            <tr
-              key={fault.id}
-              onClick={() => setSelectedFault(fault)}
-              style={{ cursor: "pointer", borderBottom: "1px solid #ccc" }}
-            >
-              <td style={tdStyle}>{fault.ticket_number || fault.id}</td>
-              <td style={tdStyle}>{fault.customer?.company || "-"}</td>
-              <td style={tdStyle}>{fault.customer?.circuit_id || "-"}</td>
-              <td style={tdStyle}>{fault.type || "-"}</td>
-              <td style={tdStyle}>{fault.description}</td>
-              <td style={tdStyle}>{fault.location || "-"}</td>
-              <td style={tdStyle} onClick={(e) => e.stopPropagation()}>
-                <select
-                  value={fault.status}
-                  onChange={(e) => handleStatusChange(e, fault.id)}
-                >
-                  <option>Open</option>
-                  <option>In Progress</option>
-                  <option>Resolved</option>
-                  <option>Closed</option>
-                </select>
-              </td>
-              <td style={tdStyle}>
-                <span style={severityBadge(String(fault.severity))}>
-                  {fault.severity || "-"}
-                </span>
-              </td>
-              <td style={tdStyle}>
-                {typeof fault.pending_hours === "number"
-                  ? `${fault.pending_hours.toFixed(1)}h`
-                  : "-"}
-              </td>
-              <td style={tdStyle}>{formatDateTime(fault.createdAt)}</td>
-              <td style={tdStyle}>{formatDateTime(fault.resolvedAt)}</td>
-              <td style={tdStyle}>{formatDateTime(fault.closedAt)}</td>
+      {loading ? (
+        <p>Loading faults...</p>
+      ) : (
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ background: "#f0f0f0" }}>
+              <th style={thStyle}>Ticket #</th>
+              <th style={thStyle}>Company</th>
+              <th style={thStyle}>Circuit ID</th>
+              <th style={thStyle}>Type</th>
+              <th style={thStyle}>Description</th>
+              <th style={thStyle}>Location</th>
+              <th style={thStyle}>Status</th>
+              <th style={thStyle}>Severity</th>
+              <th style={thStyle}>Pending</th>
+              <th style={thStyle}>Logged Time</th>
+              {shouldShowResolved && <th style={thStyle}>Resolved At</th>}
+              {shouldShowClosed && <th style={thStyle}>Closed At</th>}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {faults.map((fault, idx) => (
+              <tr
+                key={fault.id}
+                onClick={() => setSelectedFault(fault)}
+                style={{
+                  cursor: "pointer",
+                  backgroundColor: idx % 2 === 0 ? "#fff" : "#f9f9f9",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor = "#eef5ff")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor =
+                    idx % 2 === 0 ? "#fff" : "#f9f9f9")
+                }
+              >
+                <td style={tdStyle}>{fault.ticket_number || fault.id}</td>
+                <td style={tdStyle}>
+                  {fault.customer?.company || (
+                    <span style={{ fontStyle: "italic", color: "#666" }}>
+                      General Fault
+                    </span>
+                  )}
+                </td>
+                <td style={tdStyle}>{fault.customer?.circuit_id || "-"}</td>
+                <td style={tdStyle}>{fault.type || "-"}</td>
+                <td style={tdStyle}>{fault.description}</td>
+                <td style={tdStyle}>{fault.location || "-"}</td>
+                <td style={tdStyle} onClick={(e) => e.stopPropagation()}>
+                  <select
+                    value={fault.status}
+                    onChange={(e) => handleStatusChange(e, fault.id)}
+                    disabled={fault.status === "Closed"}
+                    style={statusDropdownStyle(fault.status)}
+                  >
+                    <option>Open</option>
+                    <option>In Progress</option>
+                    <option>Resolved</option>
+                    <option>Closed</option>
+                  </select>
+                </td>
+                <td style={tdStyle}>
+                  <span style={severityBadge(String(fault.severity))}>
+                    {fault.severity || "-"}
+                  </span>
+                </td>
+                <td style={tdStyle}>
+                  {(() => {
+                    if (fault.status === "Resolved") {
+                      return (
+                        <span
+                          style={{
+                            backgroundColor: "green",
+                            color: "#fff",
+                            padding: "4px 10px",
+                            borderRadius: "20px",
+                            fontSize: "12px",
+                            fontWeight: "500",
+                            display: "inline-block",
+                          }}
+                        >
+                          Resolved
+                        </span>
+                      );
+                    } else if (fault.status === "Closed") {
+                      return (
+                        <span
+                          style={{
+                            backgroundColor: "gray",
+                            color: "#fff",
+                            padding: "4px 10px",
+                            borderRadius: "20px",
+                            fontSize: "12px",
+                            fontWeight: "500",
+                            display: "inline-block",
+                          }}
+                        >
+                          Closed
+                        </span>
+                      );
+                    } else if (typeof fault.pending_hours === "number") {
+                      const { text, color } = formatPendingTime(
+                        fault.pending_hours,
+                        fault.status
+                      );
+                      return (
+                        <span
+                          style={{
+                            backgroundColor: color,
+                            color: "#fff",
+                            padding: "4px 10px",
+                            borderRadius: "20px",
+                            fontSize: "12px",
+                            fontWeight: "500",
+                            display: "inline-block",
+                          }}
+                        >
+                          {text}
+                        </span>
+                      );
+                    } else {
+                      return "-";
+                    }
+                  })()}
+                </td>
+
+                <td style={tdStyle}>{formatDateTime(fault.createdAt)}</td>
+                {shouldShowResolved && (
+                  <td style={tdStyle}>{formatDateTime(fault.resolvedAt)}</td>
+                )}
+                {shouldShowClosed && (
+                  <td style={tdStyle}>{formatDateTime(fault.closedAt)}</td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
 
       {selectedFault && (
         <div
@@ -168,6 +318,24 @@ const inputStyle = {
   fontSize: "14px",
   flex: 1,
 };
+
+const statusDropdownStyle = (status) => ({
+  padding: "4px 8px",
+  backgroundColor:
+    status === "Open"
+      ? "orange"
+      : status === "In Progress"
+      ? "#007bff"
+      : status === "Resolved"
+      ? "green"
+      : status === "Closed"
+      ? "gray"
+      : "#ccc",
+  color: "white",
+  border: "none",
+  borderRadius: "4px",
+  fontSize: "12px",
+});
 
 const severityBadge = (severity) => {
   const colors = {

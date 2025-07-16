@@ -19,6 +19,7 @@ export default function Dashboard() {
   const [showNewFaultModal, setShowNewFaultModal] = useState(false);
   const [chartData, setChartData] = useState(null);
   const [timeRange, setTimeRange] = useState("week");
+  const [user, setUser] = useState(null);
 
   const fetchFaults = async ({
     status = activeTab,
@@ -81,6 +82,11 @@ export default function Dashboard() {
     fetchMetrics();
     // eslint-disable-next-line
   }, [timeRange]);
+
+  useEffect(() => {
+    const storedUser = JSON.parse(localStorage.getItem("user"));
+    setUser(storedUser); // ✅ update the local state properly
+  }, []);
 
   useEffect(() => {
     fetchFaults();
@@ -297,7 +303,8 @@ export default function Dashboard() {
           <FaultDetailsDrawer
             fault={selectedFault}
             onClose={() => setSelectedFault(null)}
-            refreshTable={fetchFaults} // pass refresh function
+            refreshTable={fetchFaults}
+            user={user}
           />
         </div>
       )}

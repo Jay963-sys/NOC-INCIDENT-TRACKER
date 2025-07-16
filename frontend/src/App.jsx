@@ -11,6 +11,7 @@ import DepartmentDashboard from "./pages/DepartmentDashboard"; // ⬅️ Now the
 import DepartmentFaults from "./pages/DepartmentFaultsPage"; // ⬅️ Standalone faults page
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import "react-datepicker/dist/react-datepicker.css";
 
 export default function App() {
   return (

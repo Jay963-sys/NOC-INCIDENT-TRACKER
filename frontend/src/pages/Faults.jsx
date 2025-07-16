@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import api from "../services/api";
 import FaultList from "../components/FaultList";
 import FaultDetailsDrawer from "../components/FaultDetailsDrawer";
+import CustomRangeModal from "../components/CustomRangeModal";
 
 export default function Faults() {
   const [faults, setFaults] = useState([]);
@@ -9,14 +10,23 @@ export default function Faults() {
   const [selectedFault, setSelectedFault] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
+  const [customStartDate, setCustomStartDate] = useState(null);
+  const [customEndDate, setCustomEndDate] = useState(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [severityFilter, setSeverityFilter] = useState("");
   const [dateRange, setDateRange] = useState("all");
 
   const [page, setPage] = useState(1);
-  const faultsPerPage = 10;
+  const faultsPerPage = 20;
+  const handleApply = () => {
+    if (customStartDate && customEndDate) {
+      setDateRange("custom");
+      fetchFaults();
+      setShowDatePicker(false);
+    }
+  };
 
   const fetchFaults = useCallback(async () => {
     setLoading(true);
@@ -26,6 +36,14 @@ export default function Faults() {
           status: statusFilter,
           severity: severityFilter,
           timeRange: dateRange,
+          customStart:
+            dateRange === "custom" && customStartDate
+              ? customStartDate.toISOString()
+              : undefined,
+          customEnd:
+            dateRange === "custom" && customEndDate
+              ? customEndDate.toISOString()
+              : undefined,
         },
       });
       setFaults(res.data);
@@ -35,7 +53,7 @@ export default function Faults() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, severityFilter, dateRange]);
+  }, [statusFilter, severityFilter, dateRange, customStartDate, customEndDate]);
 
   useEffect(() => {
     fetchFaults();
@@ -48,7 +66,7 @@ export default function Faults() {
         f.description?.toLowerCase().includes(search.toLowerCase())
     );
     setFiltered(filteredList);
-    setPage(1); // Reset page on filter change
+    setPage(1);
   }, [search, faults]);
 
   const paginatedFaults = filtered.slice(
@@ -97,17 +115,37 @@ export default function Faults() {
 
           <select
             value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            style={{ padding: "6px" }}
+            onChange={(e) => {
+              const value = e.target.value;
+              setDateRange(value);
+              if (value === "custom") {
+                setShowDatePicker(true);
+              } else {
+                setCustomStartDate(null);
+                setCustomEndDate(null);
+                fetchFaults();
+              }
+            }}
           >
             <option value="all">All Time</option>
             <option value="day">Past 24 hours</option>
             <option value="week">Past 7 days</option>
             <option value="month">Past 30 days</option>
             <option value="year">Past 12 months</option>
+            <option value="custom">Custom Range</option>
           </select>
         </div>
       </div>
+
+      <CustomRangeModal
+        show={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+        startDate={customStartDate}
+        endDate={customEndDate}
+        setStartDate={setCustomStartDate}
+        setEndDate={setCustomEndDate}
+        onApply={handleApply}
+      />
 
       {loading ? (
         <p>Loading faults...</p>

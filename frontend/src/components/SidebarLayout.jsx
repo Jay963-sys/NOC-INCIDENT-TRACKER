@@ -1,5 +1,14 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import {
+  BarChart2,
+  Wrench,
+  Building,
+  Users,
+  Landmark,
+  Menu,
+  ChevronLeft,
+} from "lucide-react";
 
 export default function SidebarLayout({ children }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -26,14 +35,15 @@ export default function SidebarLayout({ children }) {
       <div
         style={{
           width: collapsed ? "64px" : "220px",
-          background: "#3b4252",
-          color: "#3b4252",
+          background: "#1e293b",
+          color: "#fff",
           transition: "width 0.3s ease",
           display: "flex",
           flexDirection: "column",
           boxShadow: "2px 0 4px rgba(0,0,0,0.1)",
         }}
       >
+        {/* Toggle */}
         <div
           style={{
             padding: "16px",
@@ -52,14 +62,15 @@ export default function SidebarLayout({ children }) {
             }}
             title="Toggle sidebar"
           >
-            {collapsed ? "☰" : "«"}
+            {collapsed ? <Menu size={20} /> : <ChevronLeft size={20} />}
           </button>
         </div>
 
+        {/* Links */}
         <nav style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
           <SidebarLink
             to={isAdmin ? "/dashboard" : "/department/dashboard"}
-            icon="📊"
+            icon={<BarChart2 size={18} />}
             label="Dashboard"
             collapsed={collapsed}
             active={
@@ -71,7 +82,7 @@ export default function SidebarLayout({ children }) {
 
           <SidebarLink
             to={isAdmin ? "/dashboard/faults" : "/department/faults"}
-            icon="🛠️"
+            icon={<Wrench size={18} />}
             label="Faults"
             collapsed={collapsed}
             active={
@@ -81,25 +92,36 @@ export default function SidebarLayout({ children }) {
             }
           />
 
+          {/* Divider */}
+          {isAdmin && (
+            <div
+              style={{
+                height: "1px",
+                background: "#334155",
+                margin: "8px 12px",
+              }}
+            />
+          )}
+
           {isAdmin && (
             <>
               <SidebarLink
                 to="/customers"
-                icon="🏢"
+                icon={<Building size={18} />}
                 label="Customers"
                 collapsed={collapsed}
                 active={isActive("/customers")}
               />
               <SidebarLink
                 to="/users"
-                icon="👤"
+                icon={<Users size={18} />}
                 label="Users"
                 collapsed={collapsed}
                 active={isActive("/users")}
               />
               <SidebarLink
                 to="/departments"
-                icon="🏬"
+                icon={<Landmark size={18} />}
                 label="Departments"
                 collapsed={collapsed}
                 active={isActive("/departments")}
@@ -131,10 +153,13 @@ export default function SidebarLayout({ children }) {
 
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             {!isAdmin && (
-              <span style={{ fontSize: "14px", color: "#334155" }}>
-                {user?.department?.name || "Department"}
-              </span>
+              <h2 style={{ fontSize: "16px", color: "#334155", margin: 0 }}>
+                {user?.department?.name?.includes("Department")
+                  ? user.department.name
+                  : `${user?.department?.name || "Department"} Department`}
+              </h2>
             )}
+
             <div
               style={{
                 width: "32px",
@@ -197,7 +222,7 @@ function SidebarLink({ to, icon, label, collapsed, active }) {
         alignItems: "center",
         padding: "10px 16px",
         backgroundColor: active ? "#2563eb" : "transparent",
-        color: active ? "#fff" : "#e2e8f0",
+        color: active ? "#fff" : "#cbd5e1",
         textDecoration: "none",
         fontWeight: active ? "600" : "400",
         borderRadius: "6px",
@@ -205,7 +230,13 @@ function SidebarLink({ to, icon, label, collapsed, active }) {
         transition: "background-color 0.2s ease",
       }}
     >
-      <span style={{ marginRight: collapsed ? "0" : "10px", fontSize: "16px" }}>
+      <span
+        style={{
+          marginRight: collapsed ? "0" : "10px",
+          display: "flex",
+          alignItems: "center",
+        }}
+      >
         {icon}
       </span>
       {!collapsed && <span>{label}</span>}

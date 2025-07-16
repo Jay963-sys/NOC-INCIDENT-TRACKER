@@ -59,6 +59,8 @@ const getFilteredFaults = async (req) => {
     severity,
     search,
     timeRange = "week",
+    customStart,
+    customEnd,
   } = req.query;
   const whereClause = {};
 
@@ -97,25 +99,33 @@ const getFilteredFaults = async (req) => {
   }
 
   let dateFilter = {};
-  const now = new Date();
-
-  if (timeRange === "day") {
-    const startOfDay = new Date(now.setHours(0, 0, 0, 0));
-    dateFilter = { createdAt: { [Op.gte]: startOfDay } };
-  } else if (timeRange === "week") {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(now.getDate() - 6);
-    dateFilter = { createdAt: { [Op.gte]: sevenDaysAgo } };
-  } else if (timeRange === "month") {
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(now.getDate() - 30);
-    dateFilter = { createdAt: { [Op.gte]: thirtyDaysAgo } };
-  } else if (timeRange === "year") {
-    const oneYearAgo = new Date();
-    oneYearAgo.setFullYear(now.getFullYear() - 1);
-    dateFilter = { createdAt: { [Op.gte]: oneYearAgo } };
+  if (customStart && customEnd) {
+    dateFilter = {
+      createdAt: {
+        [Op.between]: [new Date(customStart), new Date(customEnd)],
+      },
+    };
+  } else {
+    const now = new Date();
+    if (timeRange === "day") {
+      const startOfDay = new Date(now.setHours(0, 0, 0, 0));
+      dateFilter = { createdAt: { [Op.gte]: startOfDay } };
+    } else if (timeRange === "week") {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(now.getDate() - 6);
+      dateFilter = { createdAt: { [Op.gte]: sevenDaysAgo } };
+    } else if (timeRange === "month") {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(now.getDate() - 30);
+      dateFilter = { createdAt: { [Op.gte]: thirtyDaysAgo } };
+    } else if (timeRange === "year") {
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(now.getFullYear() - 1);
+      dateFilter = { createdAt: { [Op.gte]: oneYearAgo } };
+    }
   }
 
+  // ✅ This now runs regardless of whether customStart/customEnd was used
   const faults = await Fault.findAll({
     where: { ...whereClause, ...dateFilter },
     order: [["createdAt", "DESC"]],
@@ -772,7 +782,9 @@ router.get("/department/dashboard", authMiddleware, async (req, res) => {
       return res.status(403).json({ error: "Unauthorized" });
     }
 
-    const { status, severity, search } = req.query;
+    const { status, severity, search, timeRange, customStart, customEnd } =
+      req.query;
+
     const where = {
       assigned_to_id: user.department_id,
     };
@@ -781,10 +793,34 @@ router.get("/department/dashboard", authMiddleware, async (req, res) => {
       where.status = status;
     }
 
-    // Remove severity from the initial DB filter
-    // if (severity && severity !== "all") {
-    //   where.severity = severity;
-    // }
+    // 🔁 Add createdAt filtering based on timeRange
+    if (customStart && customEnd) {
+      where.createdAt = {
+        [Op.between]: [new Date(customStart), new Date(customEnd)],
+      };
+    } else if (timeRange && timeRange !== "all") {
+      const now = new Date();
+      let fromDate;
+
+      switch (timeRange) {
+        case "day":
+          fromDate = new Date(now.setDate(now.getDate() - 1));
+          break;
+        case "week":
+          fromDate = new Date(now.setDate(now.getDate() - 7));
+          break;
+        case "month":
+          fromDate = new Date(now.setMonth(now.getMonth() - 1));
+          break;
+        case "year":
+          fromDate = new Date(now.setFullYear(now.getFullYear() - 1));
+          break;
+      }
+
+      if (fromDate) {
+        where.createdAt = { [Op.gte]: fromDate };
+      }
+    }
 
     if (search) {
       where[Op.or] = [
@@ -807,7 +843,6 @@ router.get("/department/dashboard", authMiddleware, async (req, res) => {
       order: [["createdAt", "DESC"]],
     });
 
-    // Inject pending_hours and severity for each fault
     const now = new Date();
     const enriched = faults.map((fault) => {
       const created = new Date(fault.createdAt);
@@ -833,7 +868,6 @@ router.get("/department/dashboard", authMiddleware, async (req, res) => {
       };
     });
 
-    // ✅ Filter based on dynamic severity
     const filtered =
       severity && severity !== "all"
         ? enriched.filter((f) => f.severity === severity)
@@ -1037,6 +1071,19 @@ router.post("/general", authMiddleware, async (req, res) => {
   } catch (err) {
     console.error("Error creating general fault:", err);
     res.status(500).json({ error: "Failed to create general fault" });
+  }
+});
+
+router.delete("/:id", async (req, res) => {
+  try {
+    const fault = await Fault.findByPk(req.params.id);
+    if (!fault) return res.status(404).json({ message: "Fault not found" });
+
+    await fault.destroy();
+    res.json({ message: "Fault deleted successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to delete fault" });
   }
 });
 

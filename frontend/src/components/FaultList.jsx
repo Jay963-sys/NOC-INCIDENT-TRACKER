@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "../services/api";
+import { formatPendingTime } from "./formatPendingTime";
 
 export default function FaultList({ faults, onRowClick, onRefresh }) {
   const [updatingId, setUpdatingId] = useState(null);
@@ -27,12 +28,6 @@ export default function FaultList({ faults, onRowClick, onRefresh }) {
     } finally {
       setUpdatingId(null);
     }
-  };
-
-  const getPendingColor = (hours) => {
-    if (hours >= 48) return "#dc3545"; // red
-    if (hours >= 24) return "#fd7e14"; // orange
-    return "#6c757d"; // gray
   };
 
   if (!Array.isArray(faults) || faults.length === 0)
@@ -80,14 +75,8 @@ export default function FaultList({ faults, onRowClick, onRefresh }) {
           } else {
             const diffMs = currentTime - createdAt.getTime();
             const diffHours = diffMs / (1000 * 60 * 60);
-            const pendingColor = getPendingColor(diffHours);
-            pendingDisplay = (
-              <span style={badgeStyle(pendingColor)}>
-                {diffHours >= 24
-                  ? `${(diffHours / 24).toFixed(1)} days`
-                  : `${diffHours.toFixed(1)} hrs`}
-              </span>
-            );
+            const { text, color } = formatPendingTime(diffHours, fault.status);
+            pendingDisplay = <span style={badgeStyle(color)}>{text}</span>;
           }
 
           return (
@@ -144,9 +133,7 @@ export default function FaultList({ faults, onRowClick, onRefresh }) {
                 <select
                   value={fault.status}
                   onChange={(e) => handleStatusChange(fault.id, e.target.value)}
-                  disabled={
-                    updatingId === fault.id || fault.status === "Closed"
-                  }
+                  disabled={updatingId === fault.id}
                   style={{
                     padding: "4px 8px",
                     backgroundColor:
