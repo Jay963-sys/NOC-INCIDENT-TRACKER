@@ -1,4 +1,3 @@
-// config/db.js
 const { Sequelize } = require("sequelize");
 require("dotenv").config();
 
@@ -11,7 +10,7 @@ const sequelize = new Sequelize(process.env.DATABASE_URL, {
       process.env.NODE_ENV === "production"
         ? {
             require: true,
-            rejectUnauthorized: false, // for hosted dbs like Supabase, Railway, etc.
+            rejectUnauthorized: false,
           }
         : false,
   },
