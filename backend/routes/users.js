@@ -46,11 +46,12 @@ router.post("/", authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
-// Get all users
+// Get all users (excluding soft-deleted)
 router.get("/", authMiddleware, adminOnly, async (req, res) => {
   try {
     const users = await User.findAll({
-      include: [{ model: Department, as: "department" }], // ✅ Fixed alias
+      where: { is_active: true },
+      include: [{ model: Department, as: "department" }],
       attributes: { exclude: ["password"] },
       order: [["createdAt", "DESC"]],
     });
@@ -68,7 +69,7 @@ router.get("/:id", authMiddleware, adminOnly, async (req, res) => {
       include: [{ model: Department, as: "department" }],
       attributes: { exclude: ["password"] },
     });
-    if (!user) {
+    if (!user || !user.is_active) {
       return res.status(404).json({ message: "User not found" });
     }
     res.json(user);
@@ -78,13 +79,12 @@ router.get("/:id", authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
-module.exports = router;
-
-// PUT /api/users/:id - Update user
+// Update user
 router.put("/:id", authMiddleware, adminOnly, async (req, res) => {
   try {
     const user = await User.findByPk(req.params.id);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user || !user.is_active)
+      return res.status(404).json({ message: "User not found" });
 
     const { username, email, role, department_id } = req.body;
 
@@ -101,16 +101,21 @@ router.put("/:id", authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
-// DELETE /api/users/:id - Delete user
+// Soft delete user (set is_active = false)
 router.delete("/:id", authMiddleware, adminOnly, async (req, res) => {
   try {
     const user = await User.findByPk(req.params.id);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user || !user.is_active)
+      return res.status(404).json({ message: "User not found" });
 
-    await user.destroy();
-    res.json({ message: "User deleted successfully" });
+    user.is_active = false;
+    await user.save();
+
+    res.json({ message: "User deactivated (soft deleted) successfully" });
   } catch (err) {
-    console.error("Error deleting user:", err);
+    console.error("Error soft-deleting user:", err);
     res.status(500).json({ message: "Server error deleting user" });
   }
 });
+
+module.exports = router;

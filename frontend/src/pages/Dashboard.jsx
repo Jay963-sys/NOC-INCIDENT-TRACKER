@@ -21,6 +21,12 @@ export default function Dashboard() {
   const [timeRange, setTimeRange] = useState("week");
   const [user, setUser] = useState(null);
 
+  const refreshDashboard = () => {
+    fetchFaults();
+    fetchMetrics();
+    fetchCharts();
+  };
+
   const fetchFaults = async ({
     status = activeTab,
     department = departmentFilter,
@@ -85,7 +91,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     const storedUser = JSON.parse(localStorage.getItem("user"));
-    setUser(storedUser); // ✅ update the local state properly
+    setUser(storedUser);
   }, []);
 
   useEffect(() => {
@@ -286,7 +292,7 @@ export default function Dashboard() {
         <FaultList
           faults={faults}
           onRowClick={handleRowClick}
-          onRefresh={fetchFaults}
+          onRefresh={refreshDashboard}
         />
       )}
 
@@ -303,7 +309,7 @@ export default function Dashboard() {
           <FaultDetailsDrawer
             fault={selectedFault}
             onClose={() => setSelectedFault(null)}
-            refreshTable={fetchFaults}
+            refreshDashboard={refreshDashboard}
             user={user}
           />
         </div>
@@ -316,10 +322,11 @@ export default function Dashboard() {
             <h3>Log New Fault</h3>
             <NewFaultForm
               onSuccess={() => {
-                fetchFaults();
+                refreshDashboard();
                 setShowNewFaultModal(false);
               }}
             />
+
             <button
               onClick={() => setShowNewFaultModal(false)}
               style={{

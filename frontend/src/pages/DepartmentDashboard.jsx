@@ -24,6 +24,11 @@ export default function DepartmentDashboard() {
   const [severityFilter, setSeverityFilter] = useState("all");
   const [loading, setLoading] = useState(false);
 
+  const refreshDashboard = () => {
+    fetchFaults();
+    fetchMetrics();
+  };
+
   const fetchFaults = useCallback(async () => {
     setLoading(true);
     try {
@@ -58,7 +63,7 @@ export default function DepartmentDashboard() {
     });
 
     const total = Object.values(statusCounts).reduce(
-      (sum, val) => sum + val,
+      (sum, val) => sum + Number(val),
       0
     );
 
@@ -407,7 +412,7 @@ export default function DepartmentDashboard() {
           <FaultDetailsDrawer
             fault={selectedFault}
             onClose={() => setSelectedFault(null)}
-            refreshTable={fetchFaults}
+            refreshDashboard={refreshDashboard}
           />
         </div>
       )}

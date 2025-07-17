@@ -8,6 +8,11 @@ module.exports = (sequelize, DataTypes) => {
     password: { type: DataTypes.STRING, allowNull: false },
     role: { type: DataTypes.STRING, defaultValue: "user" },
     department_id: { type: DataTypes.INTEGER, allowNull: true },
+    is_active: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+    },
   });
 
   User.associate = (models) => {

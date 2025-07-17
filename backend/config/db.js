@@ -1,9 +1,20 @@
+// config/db.js
 const { Sequelize } = require("sequelize");
+require("dotenv").config();
 
-const sequelize = new Sequelize({
-  dialect: "sqlite",
-  storage: "./database.sqlite", // We'll use SQLite for now, like your faults.db
+const sequelize = new Sequelize(process.env.DATABASE_URL, {
+  dialect: "postgres",
+  protocol: "postgres",
   logging: false,
+  dialectOptions: {
+    ssl:
+      process.env.NODE_ENV === "production"
+        ? {
+            require: true,
+            rejectUnauthorized: false, // for hosted dbs like Supabase, Railway, etc.
+          }
+        : false,
+  },
 });
 
 module.exports = sequelize;

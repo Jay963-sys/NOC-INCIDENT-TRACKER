@@ -23,7 +23,8 @@ export default function Users() {
   const fetchUsers = async () => {
     try {
       const res = await api.get("/users");
-      setUsers(res.data);
+      const activeUsers = res.data.filter((user) => user.is_active !== false); // <-- Only active
+      setUsers(activeUsers);
     } catch (err) {
       console.error(err);
       setError("Failed to fetch users");

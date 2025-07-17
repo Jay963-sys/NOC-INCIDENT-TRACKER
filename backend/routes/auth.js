@@ -11,12 +11,14 @@ router.post("/login", async (req, res) => {
 
   try {
     const user = await User.findOne({
-      where: { username },
+      where: { username, is_active: true },
       include: [{ model: Department, as: "department" }],
     });
 
     if (!user) {
-      return res.status(400).json({ message: "Invalid username or password" });
+      return res
+        .status(400)
+        .json({ message: "Invalid credentials or inactive account" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -68,6 +70,7 @@ router.post("/register", async (req, res) => {
       password: hashedPassword,
       role,
       department_id: department_id || null,
+      is_active: true,
     });
 
     return res.json({ message: "User registered successfully.", user });

@@ -3,7 +3,11 @@ import api from "../services/api";
 import { toast } from "react-toastify";
 import { formatPendingTime } from "./formatPendingTime";
 
-export default function FaultDetailsDrawer({ fault, onClose, refreshTable }) {
+export default function FaultDetailsDrawer({
+  fault,
+  onClose,
+  refreshDashboard,
+}) {
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState("Details");
   const [details, setDetails] = useState(null);
@@ -70,7 +74,7 @@ export default function FaultDetailsDrawer({ fault, onClose, refreshTable }) {
     await api.put(`/faults/${fault.id}`, { status: newStatus });
     const res = await api.get(`/faults/${fault.id}/details`);
     setDetails(res.data.fault);
-    if (refreshTable) refreshTable();
+    refreshDashboard();
   };
 
   const handleDepartmentTransfer = async () => {
@@ -84,7 +88,7 @@ export default function FaultDetailsDrawer({ fault, onClose, refreshTable }) {
       setDetails(res.data.fault);
       setSelectedDept(null);
       toast.success("Fault transferred successfully");
-      if (refreshTable) refreshTable();
+      refreshDashboard();
     } catch (err) {
       toast.error("Failed to transfer fault");
     }
@@ -98,7 +102,7 @@ export default function FaultDetailsDrawer({ fault, onClose, refreshTable }) {
   const handleEdit = async () => {
     try {
       await api.put(`/faults/${fault.id}`, editFault);
-      refreshTable();
+      refreshDashboard();
       onClose();
     } catch (err) {
       console.error("Edit failed", err);
@@ -109,7 +113,7 @@ export default function FaultDetailsDrawer({ fault, onClose, refreshTable }) {
   const handleDelete = async () => {
     try {
       await api.delete(`/faults/${fault.id}`);
-      refreshTable();
+      refreshDashboard();
       onClose();
     } catch (err) {
       console.error("Delete failed", err);
