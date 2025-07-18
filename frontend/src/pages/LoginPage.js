@@ -33,7 +33,7 @@ export default function LoginPage() {
     <div
       style={{
         minHeight: "100vh",
-        backgroundColor: "#f1f5f9",
+        backgroundColor: "#061611",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -44,7 +44,7 @@ export default function LoginPage() {
         style={{
           width: "100%",
           maxWidth: "400px",
-          background: "#ffffff",
+          background: "#1d665d",
           padding: "30px",
           borderRadius: "10px",
           boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)",
@@ -57,7 +57,7 @@ export default function LoginPage() {
         {error && (
           <div
             style={{
-              background: "#fee2e2",
+              background: "#b2d98b",
               color: "#b91c1c",
               padding: "10px",
               borderRadius: "6px",
@@ -102,7 +102,7 @@ const inputStyle = {
   padding: "10px",
   marginBottom: "15px",
   borderRadius: "6px",
-  border: "1px solid #cbd5e1",
+  border: "1px solid #b2d98b",
   fontSize: "14px",
 };
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "../services/api";
+import ResponsiveDashboardLayout from "../components/ResponsiveDashboardLayout";
 
 export default function Departments() {
   const [departments, setDepartments] = useState([]);
@@ -65,107 +66,109 @@ export default function Departments() {
   };
 
   return (
-    <div style={containerStyle}>
-      <div style={headerStyle}>
-        <h2 style={titleStyle}>Department Management</h2>
-      </div>
+    <ResponsiveDashboardLayout>
+      <div style={containerStyle}>
+        <div style={headerStyle}>
+          <h2 style={titleStyle}>Department Management</h2>
+        </div>
 
-      <div style={cardStyle}>
-        <h3 style={subtitleStyle}>Add New Department</h3>
-        <form onSubmit={handleAddDepartment} style={formStyle}>
-          <input
-            type="text"
-            value={newDeptName}
-            onChange={(e) => setNewDeptName(e.target.value)}
-            placeholder="Department Name"
-            style={inputStyle}
-          />
-          <button className="primary-btn" type="submit" style={primaryBtn}>
-            Add
-          </button>
-        </form>
-      </div>
+        <div style={cardStyle}>
+          <h3 style={subtitleStyle}>Add New Department</h3>
+          <form onSubmit={handleAddDepartment} style={formStyle}>
+            <input
+              type="text"
+              value={newDeptName}
+              onChange={(e) => setNewDeptName(e.target.value)}
+              placeholder="Department Name"
+              style={inputStyle}
+            />
+            <button className="primary-btn" type="submit" style={primaryBtn}>
+              Add
+            </button>
+          </form>
+        </div>
 
-      <div style={cardStyle}>
-        <h3 style={subtitleStyle}>All Departments</h3>
-        <table style={tableStyle}>
-          <thead>
-            <tr>
-              <th style={thStyle}>Name</th>
-              <th style={thStyle}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {departments.map((dept, idx) => (
-              <tr
-                key={dept.id}
-                style={{
-                  backgroundColor: idx % 2 === 0 ? "#fff" : "#f9f9f9",
-                  transition: "background-color 0.2s",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.backgroundColor = "#eef5ff")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor =
-                    idx % 2 === 0 ? "#fff" : "#f9f9f9")
-                }
-              >
-                <td style={tdStyle}>
-                  {editDept === dept.id ? (
-                    <input
-                      type="text"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      style={{
-                        padding: "8px",
-                        borderRadius: "6px",
-                        width: "100%",
-                      }}
-                    />
-                  ) : (
-                    dept.name
-                  )}
-                </td>
-                <td style={tdStyle}>
-                  {editDept === dept.id ? (
-                    <>
-                      <button
-                        style={{ ...primaryBtn, marginRight: "6px" }}
-                        onClick={() => handleUpdate(dept.id)}
-                      >
-                        Save
-                      </button>
-                      <button
-                        onClick={() => setEditDept(null)}
-                        style={secondaryBtn}
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        style={{ ...editBtnStyle, marginRight: "6px" }}
-                        onClick={() => handleEdit(dept)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        style={deleteBtnStyle}
-                        onClick={() => handleDelete(dept.id)}
-                      >
-                        Delete
-                      </button>
-                    </>
-                  )}
-                </td>
+        <div style={cardStyle}>
+          <h3 style={subtitleStyle}>All Departments</h3>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Name</th>
+                <th style={thStyle}>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {departments.map((dept, idx) => (
+                <tr
+                  key={dept.id}
+                  style={{
+                    backgroundColor: idx % 2 === 0 ? "#fff" : "#f9f9f9",
+                    transition: "background-color 0.2s",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.backgroundColor = "#eef5ff")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.backgroundColor =
+                      idx % 2 === 0 ? "#fff" : "#f9f9f9")
+                  }
+                >
+                  <td style={tdStyle}>
+                    {editDept === dept.id ? (
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        style={{
+                          padding: "8px",
+                          borderRadius: "6px",
+                          width: "100%",
+                        }}
+                      />
+                    ) : (
+                      dept.name
+                    )}
+                  </td>
+                  <td style={tdStyle}>
+                    {editDept === dept.id ? (
+                      <>
+                        <button
+                          style={{ ...primaryBtn, marginRight: "6px" }}
+                          onClick={() => handleUpdate(dept.id)}
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setEditDept(null)}
+                          style={secondaryBtn}
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          style={{ ...editBtnStyle, marginRight: "6px" }}
+                          onClick={() => handleEdit(dept)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          style={deleteBtnStyle}
+                          onClick={() => handleDelete(dept.id)}
+                        >
+                          Delete
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+    </ResponsiveDashboardLayout>
   );
 }
 

@@ -6,6 +6,7 @@ import FaultDetailsDrawer from "../components/FaultDetailsDrawer";
 import FaultCharts from "../components/FaultCharts";
 import DashboardMetrics from "../components/DashboardMetrics";
 import html2canvas from "html2canvas";
+import ResponsiveDashboardLayout from "../components/ResponsiveDashboardLayout";
 
 export default function Dashboard() {
   const [faults, setFaults] = useState([]);
@@ -104,243 +105,250 @@ export default function Dashboard() {
   };
 
   return (
-    <div style={containerStyle}>
-      <div style={headerStyle}>
-        <h2 style={{ margin: 0 }}>All Faults</h2>
-        <button onClick={() => setShowNewFaultModal(true)} style={buttonStyle}>
-          + Log New Fault
-        </button>
-      </div>
-
-      {/* Status Tabs */}
-      <div style={tabContainerStyle}>
-        {["All", "Open", "In Progress", "Resolved", "Closed"].map((tab) => (
+    <ResponsiveDashboardLayout>
+      <div style={containerStyle}>
+        <div style={headerStyle}>
+          <h2 style={{ margin: 0 }}>All Faults</h2>
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            style={{
-              ...tabButtonStyle,
-              backgroundColor: activeTab === tab ? "#007bff" : "#e0e0e0",
-              color: activeTab === tab ? "white" : "black",
-            }}
+            onClick={() => setShowNewFaultModal(true)}
+            style={buttonStyle}
           >
-            {tab}
+            + Log New Fault
           </button>
-        ))}
-      </div>
-
-      {/* Search and Filters */}
-      <div style={filterContainerStyle}>
-        <input
-          type="text"
-          placeholder="Search by Ticket, Description, Company, Circuit ID, or Type"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={inputStyle}
-        />
-
-        <select
-          value={departmentFilter}
-          onChange={(e) => setDepartmentFilter(e.target.value)}
-          style={inputStyle}
-        >
-          <option value="All">All Departments</option>
-          <option value="Field Engineers">Field Engineers</option>
-          <option value="NOC">NOC</option>
-          <option value="Service Delivery">Service Delivery</option>
-          <option value="Network Department">Network Department</option>
-        </select>
-
-        <select
-          value={severityFilter}
-          onChange={(e) => setSeverityFilter(e.target.value)}
-          style={inputStyle}
-        >
-          <option value="All">All Severities</option>
-          <option value="Low">Low</option>
-          <option value="Medium">Medium</option>
-          <option value="High">High</option>
-          <option value="Critical">Critical</option>
-        </select>
-      </div>
-
-      <select
-        value={timeRange}
-        onChange={(e) => setTimeRange(e.target.value)}
-        style={inputStyle}
-      >
-        <option value="day">Today</option>
-        <option value="week">This Week</option>
-        <option value="month">This Month</option>
-        <option value="year">This Year</option>
-      </select>
-
-      {/* Dashboard Metrics Section */}
-      {metricsData && <DashboardMetrics metrics={metricsData} />}
-
-      {/* Charts Section */}
-      <div id="chart-section">
-        {chartData && <FaultCharts chartData={chartData} />}
-      </div>
-
-      {/* Export to Excel Button */}
-      <button
-        onClick={async () => {
-          try {
-            const response = await api.get("/faults/export", {
-              params: {
-                status: activeTab.toLowerCase() === "all" ? "all" : activeTab,
-                department_id:
-                  departmentFilter === "All"
-                    ? "all"
-                    : getDepartmentId(departmentFilter),
-                severity: severityFilter === "All" ? "all" : severityFilter,
-                search: searchTerm.trim() || undefined,
-              },
-              responseType: "blob",
-            });
-
-            const blob = new Blob([response.data], {
-              type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            });
-
-            const downloadUrl = window.URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = downloadUrl;
-            link.download = "faults_export.xlsx";
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-          } catch (error) {
-            console.error("Export failed:", error);
-            alert("Failed to export faults.");
-          }
-        }}
-        style={{
-          marginBottom: "20px",
-          padding: "8px 14px",
-          backgroundColor: "#28a745",
-          color: "white",
-          border: "none",
-          borderRadius: "5px",
-          cursor: "pointer",
-        }}
-      >
-        📥 Export to Excel
-      </button>
-
-      <button
-        onClick={async () => {
-          try {
-            const chartElement = document.getElementById("chart-section");
-
-            let chartImage = null;
-            if (chartElement) {
-              const canvas = await html2canvas(chartElement);
-              chartImage = canvas.toDataURL("image/png");
-            }
-
-            const response = await api.post(
-              "/faults/export/pdf",
-              {
-                chartImage,
-                status: activeTab.toLowerCase() === "all" ? "all" : activeTab,
-                department_id:
-                  departmentFilter === "All"
-                    ? "all"
-                    : getDepartmentId(departmentFilter),
-                severity: severityFilter === "All" ? "all" : severityFilter,
-                search: searchTerm.trim() || undefined,
-                timeRange,
-              },
-              { responseType: "blob" }
-            );
-
-            const blob = new Blob([response.data], { type: "application/pdf" });
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.setAttribute("download", "faults_report_with_charts.pdf");
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-          } catch (error) {
-            console.error("PDF export failed:", error);
-            alert("Failed to export PDF");
-          }
-        }}
-        style={{
-          marginBottom: "20px",
-          padding: "8px 14px",
-          backgroundColor: "#dc3545",
-          color: "white",
-          border: "none",
-          borderRadius: "5px",
-          cursor: "pointer",
-          marginLeft: "10px",
-        }}
-      >
-        🧾 Export PDF
-      </button>
-
-      {/* Fault Table */}
-      {loading ? (
-        <p>Loading faults...</p>
-      ) : error ? (
-        <p style={{ color: "red" }}>{error}</p>
-      ) : (
-        <FaultList
-          faults={faults}
-          onRowClick={handleRowClick}
-          onRefresh={refreshDashboard}
-        />
-      )}
-
-      {/* Fault Details Drawer */}
-      {selectedFault && (
-        <div
-          className="drawer-overlay"
-          onClick={(e) => {
-            if (e.target.classList.contains("drawer-overlay")) {
-              setSelectedFault(null); // close drawer on outside click
-            }
-          }}
-        >
-          <FaultDetailsDrawer
-            fault={selectedFault}
-            onClose={() => setSelectedFault(null)}
-            refreshDashboard={refreshDashboard}
-            user={user}
-          />
         </div>
-      )}
 
-      {/* New Fault Modal */}
-      {showNewFaultModal && (
-        <div style={modalOverlayStyle}>
-          <div style={modalContentStyle}>
-            <h3>Log New Fault</h3>
-            <NewFaultForm
-              onSuccess={() => {
-                refreshDashboard();
-                setShowNewFaultModal(false);
-              }}
-            />
-
+        {/* Status Tabs */}
+        <div style={tabContainerStyle}>
+          {["All", "Open", "In Progress", "Resolved", "Closed"].map((tab) => (
             <button
-              onClick={() => setShowNewFaultModal(false)}
+              key={tab}
+              onClick={() => setActiveTab(tab)}
               style={{
-                ...buttonStyle,
-                backgroundColor: "gray",
-                marginTop: "10px",
+                ...tabButtonStyle,
+                backgroundColor: activeTab === tab ? "#007bff" : "#e0e0e0",
+                color: activeTab === tab ? "white" : "black",
               }}
             >
-              Cancel
+              {tab}
             </button>
-          </div>
+          ))}
         </div>
-      )}
-    </div>
+
+        {/* Search and Filters */}
+        <div style={filterContainerStyle}>
+          <input
+            type="text"
+            placeholder="Search by Ticket, Description, Company, Circuit ID, or Type"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={inputStyle}
+          />
+
+          <select
+            value={departmentFilter}
+            onChange={(e) => setDepartmentFilter(e.target.value)}
+            style={inputStyle}
+          >
+            <option value="All">All Departments</option>
+            <option value="Field Engineers">Field Engineers</option>
+            <option value="NOC">NOC</option>
+            <option value="Service Delivery">Service Delivery</option>
+            <option value="Network Department">Network Department</option>
+          </select>
+
+          <select
+            value={severityFilter}
+            onChange={(e) => setSeverityFilter(e.target.value)}
+            style={inputStyle}
+          >
+            <option value="All">All Severities</option>
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+            <option value="Critical">Critical</option>
+          </select>
+        </div>
+
+        <select
+          value={timeRange}
+          onChange={(e) => setTimeRange(e.target.value)}
+          style={inputStyle}
+        >
+          <option value="day">Today</option>
+          <option value="week">This Week</option>
+          <option value="month">This Month</option>
+          <option value="year">This Year</option>
+        </select>
+
+        {/* Dashboard Metrics Section */}
+        {metricsData && <DashboardMetrics metrics={metricsData} />}
+
+        {/* Charts Section */}
+        <div id="chart-section">
+          {chartData && <FaultCharts chartData={chartData} />}
+        </div>
+
+        {/* Export to Excel Button */}
+        <button
+          onClick={async () => {
+            try {
+              const response = await api.get("/faults/export", {
+                params: {
+                  status: activeTab.toLowerCase() === "all" ? "all" : activeTab,
+                  department_id:
+                    departmentFilter === "All"
+                      ? "all"
+                      : getDepartmentId(departmentFilter),
+                  severity: severityFilter === "All" ? "all" : severityFilter,
+                  search: searchTerm.trim() || undefined,
+                },
+                responseType: "blob",
+              });
+
+              const blob = new Blob([response.data], {
+                type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              });
+
+              const downloadUrl = window.URL.createObjectURL(blob);
+              const link = document.createElement("a");
+              link.href = downloadUrl;
+              link.download = "faults_export.xlsx";
+              document.body.appendChild(link);
+              link.click();
+              link.remove();
+            } catch (error) {
+              console.error("Export failed:", error);
+              alert("Failed to export faults.");
+            }
+          }}
+          style={{
+            marginBottom: "20px",
+            padding: "8px 14px",
+            backgroundColor: "#28a745",
+            color: "white",
+            border: "none",
+            borderRadius: "5px",
+            cursor: "pointer",
+          }}
+        >
+          📥 Export to Excel
+        </button>
+
+        <button
+          onClick={async () => {
+            try {
+              const chartElement = document.getElementById("chart-section");
+
+              let chartImage = null;
+              if (chartElement) {
+                const canvas = await html2canvas(chartElement);
+                chartImage = canvas.toDataURL("image/png");
+              }
+
+              const response = await api.post(
+                "/faults/export/pdf",
+                {
+                  chartImage,
+                  status: activeTab.toLowerCase() === "all" ? "all" : activeTab,
+                  department_id:
+                    departmentFilter === "All"
+                      ? "all"
+                      : getDepartmentId(departmentFilter),
+                  severity: severityFilter === "All" ? "all" : severityFilter,
+                  search: searchTerm.trim() || undefined,
+                  timeRange,
+                },
+                { responseType: "blob" }
+              );
+
+              const blob = new Blob([response.data], {
+                type: "application/pdf",
+              });
+              const url = window.URL.createObjectURL(blob);
+              const link = document.createElement("a");
+              link.href = url;
+              link.setAttribute("download", "faults_report_with_charts.pdf");
+              document.body.appendChild(link);
+              link.click();
+              link.remove();
+            } catch (error) {
+              console.error("PDF export failed:", error);
+              alert("Failed to export PDF");
+            }
+          }}
+          style={{
+            marginBottom: "20px",
+            padding: "8px 14px",
+            backgroundColor: "#dc3545",
+            color: "white",
+            border: "none",
+            borderRadius: "5px",
+            cursor: "pointer",
+            marginLeft: "10px",
+          }}
+        >
+          🧾 Export PDF
+        </button>
+
+        {/* Fault Table */}
+        {loading ? (
+          <p>Loading faults...</p>
+        ) : error ? (
+          <p style={{ color: "red" }}>{error}</p>
+        ) : (
+          <FaultList
+            faults={faults}
+            onRowClick={handleRowClick}
+            onRefresh={refreshDashboard}
+          />
+        )}
+
+        {/* Fault Details Drawer */}
+        {selectedFault && (
+          <div
+            className="drawer-overlay"
+            onClick={(e) => {
+              if (e.target.classList.contains("drawer-overlay")) {
+                setSelectedFault(null); // close drawer on outside click
+              }
+            }}
+          >
+            <FaultDetailsDrawer
+              fault={selectedFault}
+              onClose={() => setSelectedFault(null)}
+              refreshDashboard={refreshDashboard}
+              user={user}
+            />
+          </div>
+        )}
+
+        {/* New Fault Modal */}
+        {showNewFaultModal && (
+          <div style={modalOverlayStyle}>
+            <div style={modalContentStyle}>
+              <h3>Log New Fault</h3>
+              <NewFaultForm
+                onSuccess={() => {
+                  refreshDashboard();
+                  setShowNewFaultModal(false);
+                }}
+              />
+
+              <button
+                onClick={() => setShowNewFaultModal(false)}
+                style={{
+                  ...buttonStyle,
+                  backgroundColor: "gray",
+                  marginTop: "10px",
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </ResponsiveDashboardLayout>
   );
 }
 

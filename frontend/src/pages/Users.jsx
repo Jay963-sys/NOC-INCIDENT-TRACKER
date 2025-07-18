@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "../services/api";
+import ResponsiveDashboardLayout from "../components/ResponsiveDashboardLayout";
 
 export default function Users() {
   const [users, setUsers] = useState([]);
@@ -119,145 +120,147 @@ export default function Users() {
   };
 
   return (
-    <div style={containerStyle}>
-      <div style={headerStyle}>
-        <h2 style={titleStyle}>User Management</h2>
-      </div>
+    <ResponsiveDashboardLayout>
+      <div style={containerStyle}>
+        <div style={headerStyle}>
+          <h2 style={titleStyle}>User Management</h2>
+        </div>
 
-      <div style={formCard}>
-        <h3 style={subtitleStyle}>
-          {editingUser ? "Edit User" : "Create New User"}
-        </h3>
-        {error && <p style={errorStyle}>{error}</p>}
-        <form
-          onSubmit={editingUser ? handleUpdateUser : handleCreateUser}
-          style={formStyle}
-        >
-          <input
-            type="text"
-            name="username"
-            placeholder="Username *"
-            value={editingUser ? editingUser.username : newUser.username}
-            onChange={handleInputChange}
-            style={inputStyle}
-          />
-          <input
-            type="email"
-            name="email"
-            placeholder="Email *"
-            value={editingUser ? editingUser.email : newUser.email}
-            onChange={handleInputChange}
-            style={inputStyle}
-          />
-          {!editingUser && (
+        <div style={formCard}>
+          <h3 style={subtitleStyle}>
+            {editingUser ? "Edit User" : "Create New User"}
+          </h3>
+          {error && <p style={errorStyle}>{error}</p>}
+          <form
+            onSubmit={editingUser ? handleUpdateUser : handleCreateUser}
+            style={formStyle}
+          >
             <input
-              type="password"
-              name="password"
-              placeholder="Password *"
-              value={newUser.password}
+              type="text"
+              name="username"
+              placeholder="Username *"
+              value={editingUser ? editingUser.username : newUser.username}
               onChange={handleInputChange}
               style={inputStyle}
             />
-          )}
-          <select
-            name="role"
-            value={editingUser ? editingUser.role : newUser.role}
-            onChange={handleInputChange}
-            style={inputStyle}
-          >
-            <option value="user">User</option>
-            <option value="admin">Admin</option>
-          </select>
-          <select
-            name="department_id"
-            value={
-              editingUser
-                ? editingUser.department_id || ""
-                : newUser.department_id
-            }
-            onChange={handleInputChange}
-            style={inputStyle}
-          >
-            <option value="">No Department</option>
-            {departments.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-          <button style={primaryBtn} type="submit">
-            {editingUser ? "Update User" : "Add User"}
-          </button>
-          {editingUser && (
-            <button
-              type="button"
-              onClick={() => setEditingUser(null)}
-              style={secondaryBtn}
+            <input
+              type="email"
+              name="email"
+              placeholder="Email *"
+              value={editingUser ? editingUser.email : newUser.email}
+              onChange={handleInputChange}
+              style={inputStyle}
+            />
+            {!editingUser && (
+              <input
+                type="password"
+                name="password"
+                placeholder="Password *"
+                value={newUser.password}
+                onChange={handleInputChange}
+                style={inputStyle}
+              />
+            )}
+            <select
+              name="role"
+              value={editingUser ? editingUser.role : newUser.role}
+              onChange={handleInputChange}
+              style={inputStyle}
             >
-              Cancel
-            </button>
-          )}
-        </form>
-      </div>
-
-      <div style={formCard}>
-        <h3 style={subtitleStyle}>All Users</h3>
-        {loading ? (
-          <p>Loading users...</p>
-        ) : (
-          <table style={tableStyle}>
-            <thead>
-              <tr>
-                <th style={thStyle}>Username</th>
-                <th style={thStyle}>Email</th>
-                <th style={thStyle}>Role</th>
-                <th style={thStyle}>Department</th>
-                <th style={thStyle}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u, idx) => (
-                <tr
-                  key={u.id}
-                  style={{
-                    backgroundColor: idx % 2 === 0 ? "#fff" : "#f9f9f9",
-                    transition: "background-color 0.2s",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.backgroundColor = "#eef5ff")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.backgroundColor =
-                      idx % 2 === 0 ? "#fff" : "#f9f9f9")
-                  }
-                >
-                  <td style={tdStyle}>{u.username}</td>
-                  <td style={tdStyle}>{u.email}</td>
-                  <td style={tdStyle}>{u.role}</td>
-                  <td style={tdStyle}>
-                    {u.department ? u.department.name : "N/A"}
-                  </td>
-                  <td style={tdStyle}>
-                    <button
-                      style={editBtnStyle}
-                      onClick={() => handleEditUser(u)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      style={deleteBtnStyle}
-                      onClick={() => handleDeleteUser(u.id)}
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+            <select
+              name="department_id"
+              value={
+                editingUser
+                  ? editingUser.department_id || ""
+                  : newUser.department_id
+              }
+              onChange={handleInputChange}
+              style={inputStyle}
+            >
+              <option value="">No Department</option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
               ))}
-            </tbody>
-          </table>
-        )}
+            </select>
+            <button style={primaryBtn} type="submit">
+              {editingUser ? "Update User" : "Add User"}
+            </button>
+            {editingUser && (
+              <button
+                type="button"
+                onClick={() => setEditingUser(null)}
+                style={secondaryBtn}
+              >
+                Cancel
+              </button>
+            )}
+          </form>
+        </div>
+
+        <div style={formCard}>
+          <h3 style={subtitleStyle}>All Users</h3>
+          {loading ? (
+            <p>Loading users...</p>
+          ) : (
+            <table style={tableStyle}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>Username</th>
+                  <th style={thStyle}>Email</th>
+                  <th style={thStyle}>Role</th>
+                  <th style={thStyle}>Department</th>
+                  <th style={thStyle}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((u, idx) => (
+                  <tr
+                    key={u.id}
+                    style={{
+                      backgroundColor: idx % 2 === 0 ? "#fff" : "#f9f9f9",
+                      transition: "background-color 0.2s",
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.backgroundColor = "#eef5ff")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.backgroundColor =
+                        idx % 2 === 0 ? "#fff" : "#f9f9f9")
+                    }
+                  >
+                    <td style={tdStyle}>{u.username}</td>
+                    <td style={tdStyle}>{u.email}</td>
+                    <td style={tdStyle}>{u.role}</td>
+                    <td style={tdStyle}>
+                      {u.department ? u.department.name : "N/A"}
+                    </td>
+                    <td style={tdStyle}>
+                      <button
+                        style={editBtnStyle}
+                        onClick={() => handleEditUser(u)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        style={deleteBtnStyle}
+                        onClick={() => handleDeleteUser(u.id)}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
-    </div>
+    </ResponsiveDashboardLayout>
   );
 }
 

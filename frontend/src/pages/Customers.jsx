@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import api from "../services/api";
 import NewCustomerForm from "../components/NewCustomerForm";
+import ResponsiveDashboardLayout from "../components/ResponsiveDashboardLayout";
 
 export default function Customers() {
   const [customers, setCustomers] = useState([]);
@@ -37,85 +38,87 @@ export default function Customers() {
   }, []);
 
   return (
-    <div style={containerStyle}>
-      <div style={headerStyle}>
-        <h2 style={titleStyle}>Customer Management</h2>
-        <button style={addBtnStyle} onClick={() => setShowNewForm(true)}>
-          + Add New Customer
-        </button>
-      </div>
-
-      {loading ? (
-        <p>Loading customers...</p>
-      ) : error ? (
-        <p style={errorStyle}>{error}</p>
-      ) : (
-        <table style={tableStyle}>
-          <thead>
-            <tr>
-              <th style={thStyle}>Company</th>
-              <th style={thStyle}>Circuit ID</th>
-              <th style={thStyle}>Type</th>
-              <th style={thStyle}>Location</th>
-              <th style={thStyle}>Owner</th>
-              <th style={thStyle}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {customers.map((c, idx) => (
-              <tr
-                key={c.id}
-                style={{
-                  backgroundColor: idx % 2 === 0 ? "#fff" : "#f9f9f9",
-                  transition: "background-color 0.2s",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.backgroundColor = "#eef5ff")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor =
-                    idx % 2 === 0 ? "#fff" : "#f9f9f9")
-                }
-              >
-                <td style={tdStyle}>{c.company}</td>
-                <td style={tdStyle}>{c.circuit_id}</td>
-                <td style={tdStyle}>{c.type}</td>
-                <td style={tdStyle}>{c.location}</td>
-                <td style={tdStyle}>{c.owner}</td>
-                <td style={tdStyle}>
-                  <button
-                    style={deleteBtnStyle}
-                    onClick={() => handleDelete(c.id)}
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      {showNewForm && (
-        <div style={modalOverlay}>
-          <div style={modalContent}>
-            <h3>Add New Customer</h3>
-            <NewCustomerForm
-              onSuccess={() => {
-                fetchCustomers();
-                setShowNewForm(false);
-              }}
-            />
-            <button
-              style={cancelBtnStyle}
-              onClick={() => setShowNewForm(false)}
-            >
-              Cancel
-            </button>
-          </div>
+    <ResponsiveDashboardLayout>
+      <div style={containerStyle}>
+        <div style={headerStyle}>
+          <h2 style={titleStyle}>Customer Management</h2>
+          <button style={addBtnStyle} onClick={() => setShowNewForm(true)}>
+            + Add New Customer
+          </button>
         </div>
-      )}
-    </div>
+
+        {loading ? (
+          <p>Loading customers...</p>
+        ) : error ? (
+          <p style={errorStyle}>{error}</p>
+        ) : (
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Company</th>
+                <th style={thStyle}>Circuit ID</th>
+                <th style={thStyle}>Type</th>
+                <th style={thStyle}>Location</th>
+                <th style={thStyle}>Owner</th>
+                <th style={thStyle}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {customers.map((c, idx) => (
+                <tr
+                  key={c.id}
+                  style={{
+                    backgroundColor: idx % 2 === 0 ? "#fff" : "#f9f9f9",
+                    transition: "background-color 0.2s",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.backgroundColor = "#eef5ff")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.backgroundColor =
+                      idx % 2 === 0 ? "#fff" : "#f9f9f9")
+                  }
+                >
+                  <td style={tdStyle}>{c.company}</td>
+                  <td style={tdStyle}>{c.circuit_id}</td>
+                  <td style={tdStyle}>{c.type}</td>
+                  <td style={tdStyle}>{c.location}</td>
+                  <td style={tdStyle}>{c.owner}</td>
+                  <td style={tdStyle}>
+                    <button
+                      style={deleteBtnStyle}
+                      onClick={() => handleDelete(c.id)}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {showNewForm && (
+          <div style={modalOverlay}>
+            <div style={modalContent}>
+              <h3>Add New Customer</h3>
+              <NewCustomerForm
+                onSuccess={() => {
+                  fetchCustomers();
+                  setShowNewForm(false);
+                }}
+              />
+              <button
+                style={cancelBtnStyle}
+                onClick={() => setShowNewForm(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </ResponsiveDashboardLayout>
   );
 }
 
